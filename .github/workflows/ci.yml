@@ -19,7 +19,8 @@ jobs:
           miniforge-version: latest
           activate-environment: solarwave
           environment-file: mamba_environment.yml
-          auto-activate-base: false
+          auto-activate: false
+          conda-remove-defaults: true
           use-mamba: true
 
       - name: Run tests
