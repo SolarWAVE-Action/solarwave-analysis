@@ -1,0 +1,146 @@
+import pandas as pd
+import pytest
+
+from data_analysis import read_dgstats_data
+
+
+DROP_COLS = [
+    "System Output Monitoring Provider",
+    "System Output Reports To Vendor?",
+    "System Output Monitoring",
+    "Pace Financier",
+    "Service Zip",
+    "CSLB Number",
+    "Matched CSI Application Number",
+    "Installer Zip",
+    "Installer State",
+    "Installer City",
+    "Installer Phone",
+    "Preceding Id",
+    "Superceding Id",
+    "Application Id",
+]
+
+REQUIRED_COLS = [
+    "App Approved Date",
+    "Technology Type",
+    "System Size AC",
+    "App Received Date",
+    "App Complete Date",
+]
+
+
+def _build_df(rows):
+    columns = REQUIRED_COLS + DROP_COLS
+    # Ensure at least 46 columns total so slicing does not drop required columns.
+    needed_dummy = 46 - len(columns)
+    dummy_cols = [f"Dummy {i}" for i in range(needed_dummy)]
+    columns = columns + dummy_cols
+
+    df = pd.DataFrame(rows)
+    for col in columns:
+        if col not in df.columns:
+            df[col] = ""
+    return df[columns]
+
+
+def _write_csv(df, path):
+    df.to_csv(path, index=False)
+
+
+def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
+    data_dir = tmp_path / "data"
+    archive_dir = tmp_path / "archive"
+    data_dir.mkdir()
+    archive_dir.mkdir()
+
+    app_rows = [
+        {
+            "App Approved Date": "2020-01-10",
+            "Technology Type": "Photovoltaic",
+            "System Size AC": 5,
+            "App Received Date": "2020-01-01",
+            "App Complete Date": "2020-01-05",
+        },
+        {
+            "App Approved Date": "2020-02-01",
+            "Technology Type": "Wind",
+            "System Size AC": 5,
+            "App Received Date": "2020-01-15",
+            "App Complete Date": "2020-01-20",
+        },
+        {
+            "App Approved Date": "2020-03-01",
+            "Technology Type": "Photovoltaic",
+            "System Size AC": 0,
+            "App Received Date": "2020-02-01",
+            "App Complete Date": "2020-02-10",
+        },
+    ]
+
+    archive_rows = [
+        {
+            "App Approved Date": "2019-12-15",
+            "Technology Type": "Photovoltaic",
+            "System Size AC": 3,
+            "App Received Date": "2019-12-01",
+            "App Complete Date": "2019-12-05",
+        },
+        {
+            "App Approved Date": "2020-01-10",
+            "Technology Type": "Photovoltaic",
+            "System Size AC": 4,
+            "App Received Date": "2020-01-01",
+            "App Complete Date": "2020-01-02",
+        },
+    ]
+
+    app_df = _build_df(app_rows)
+    archive_df = _build_df(archive_rows)
+
+    _write_csv(app_df, data_dir / "applications_pge_5_year.csv")
+    _write_csv(archive_df, archive_dir / "archive_PGE.csv")
+
+    result = read_dgstats_data(
+        data_dir=str(data_dir),
+        archive_dir=str(archive_dir),
+        date_min="2019-01-01",
+    )
+    # Only two rows should remain: one from applications + one from archive
+    assert len(result) == 2
+    assert set(result["IOU"].unique()) == {"PGE"}
+
+    # Filtered to solar + positive size
+    assert all(result["Technology Type"].str.contains("Photovoltaic"))
+    assert (result["System Size AC"] > 0).all()
+
+    # Dates parsed
+    assert pd.api.types.is_datetime64_any_dtype(result["App Approved Date"])
+    assert pd.api.types.is_datetime64_any_dtype(result["App Received Date"])
+    assert pd.api.types.is_datetime64_any_dtype(result["App Complete Date"])
+
+    # Dropped columns are removed
+    for col in DROP_COLS:
+        assert col not in result.columns
+
+
+def test_read_dgstats_data_without_archive_dir(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+
+    app_rows = [
+        {
+            "App Approved Date": "2021-05-10",
+            "Technology Type": "Photovoltaic",
+            "System Size AC": 2,
+            "App Received Date": "2021-05-01",
+            "App Complete Date": "2021-05-05",
+        }
+    ]
+
+    app_df = _build_df(app_rows)
+    _write_csv(app_df, data_dir / "applications_sce_5_year.csv")
+
+    result = read_dgstats_data(data_dir=str(data_dir), archive_dir=None)
+    assert len(result) == 1
+    assert set(result["IOU"].unique()) == {"SCE"}

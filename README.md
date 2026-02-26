@@ -1,2 +1,2 @@
 # solarwave-analysis
-Data collection and analysis
+Data analysis and visualizations for SolarWAVE Action.

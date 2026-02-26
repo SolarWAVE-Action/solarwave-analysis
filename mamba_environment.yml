@@ -1,0 +1,9 @@
+name: solarwave
+channels:
+  - conda-forge
+dependencies:
+  - ipython
+  - numpy
+  - pandas
+  - plotly
+  - pytest
