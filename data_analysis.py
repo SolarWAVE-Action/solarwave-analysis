@@ -8,7 +8,7 @@ import pandas as pd
 """
 Analysis of energy data for SolarWAVE Action.
 
-Author: Jenny Folkesson, PhD. jenny@solarwaveaction.org
+Author: Jenny Folkesson: jenny@solarwaveaction.org
 """
 
 
