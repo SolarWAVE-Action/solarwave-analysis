@@ -31,9 +31,9 @@ def commercial_capacity_per_year(df_total, date_type='App Received Date'):
     df['NEM Tariff'] = 'NEM ≤ 2.0'
 
     df['Quarter'] = df.index
-    hover_text = (str(df['Quarter']) +
-                  "<br> System Size: " + df['System Size DC'] + " kW" +
-                  "<br> Nbr Applications: " + df['Nbr Applications'])
+    hover_text = ("Quarter: " + df['Quarter'].astype(str) +
+                  "<br> System Size: " + df['System Size DC'].astype(str) + " kW" +
+                  "<br> Nbr Applications: " + df['Nbr Applications'].astype(str))
     fig.add_trace(go.Bar(
         x=df['Quarter'],
         y=df['System Size DC'],
@@ -54,9 +54,9 @@ def commercial_capacity_per_year(df_total, date_type='App Received Date'):
     df['NEM Tariff'] = 'NBT'
 
     df['Quarter'] = df.index
-    hover_text = (str(df['Quarter']) +
-                  "<br> System Size: " + df['System Size DC'] + " kW" +
-                  "<br> Nbr Applications: " + df['Nbr Applications'])
+    hover_text = ("Quarter: " + df['Quarter'].astype(str) +
+                  "<br> System Size: " + df['System Size DC'].astype(str) + " kW" +
+                  "<br> Nbr Applications: " + df['Nbr Applications'].astype(str))
     fig.add_trace(go.Bar(
         x=df['Quarter'],
         y=df['System Size DC'],
