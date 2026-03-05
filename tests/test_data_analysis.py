@@ -12,6 +12,10 @@ DROP_COLS = [
     "Service Zip",
     "CSLB Number",
     "Matched CSI Application Number",
+    'Electric Vehicle',
+    'Electric Vehicle Count',
+    'Itc Cost Basis',
+    'Third Party Owned Type',
     "Installer Zip",
     "Installer State",
     "Installer City",
@@ -27,6 +31,7 @@ REQUIRED_COLS = [
     "System Size AC",
     "App Received Date",
     "App Complete Date",
+    "Application Status",
 ]
 
 
@@ -61,6 +66,7 @@ def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
             "System Size AC": 5,
             "App Received Date": "2020-01-01",
             "App Complete Date": "2020-01-05",
+            "Application Status": "Interconnected",
         },
         {
             "App Approved Date": "2020-02-01",
@@ -68,6 +74,7 @@ def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
             "System Size AC": 5,
             "App Received Date": "2020-01-15",
             "App Complete Date": "2020-01-20",
+            "Application Status": "Interconnected",
         },
         {
             "App Approved Date": "2020-03-01",
@@ -75,6 +82,7 @@ def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
             "System Size AC": 0,
             "App Received Date": "2020-02-01",
             "App Complete Date": "2020-02-10",
+            "Application Status": "DECOMMISSIONED-DESTROYED",
         },
     ]
 
@@ -85,6 +93,7 @@ def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
             "System Size AC": 3,
             "App Received Date": "2019-12-01",
             "App Complete Date": "2019-12-05",
+            "Application Status": "Interconnected",
         },
         {
             "App Approved Date": "2020-01-10",
@@ -92,6 +101,7 @@ def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
             "System Size AC": 4,
             "App Received Date": "2020-01-01",
             "App Complete Date": "2020-01-02",
+            "Application Status": "Interconnected",
         },
     ]
 
@@ -135,6 +145,7 @@ def test_read_dgstats_data_without_archive_dir(tmp_path):
             "System Size AC": 2,
             "App Received Date": "2021-05-01",
             "App Complete Date": "2021-05-05",
+            "Application Status": "Interconnected",
         }
     ]
 
