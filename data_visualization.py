@@ -188,7 +188,7 @@ def dgstats_vs_pge_bargraph(df_total, date_type='App Received Date'):
     return fig
 
 
-def application_time_bargraph(df, date_type='App Approved Date'):
+def application_time_bargraph(df):
 
     df_system = df.copy()
 
@@ -197,8 +197,11 @@ def application_time_bargraph(df, date_type='App Approved Date'):
     df_system['Complete-Approved'] = (
         (df_system['App Approved Date'] - df_system['App Complete Date']).dt.days)
 
-    df = df_system[[date_type, 'System Size DC', 'Received-Complete', 'Complete-Approved']]
-    df = df.set_index(date_type).rename_axis(None)
+    df = df_system[['App Approved Date',
+                    'System Size DC',
+                    'Received-Complete',
+                    'Complete-Approved']]
+    df = df.set_index('App Approved Date').rename_axis(None)
 
     df = df.resample("YE").agg({'System Size DC': 'sum',
                                 'Received-Complete': 'median',
@@ -249,7 +252,7 @@ def application_time_bargraph(df, date_type='App Approved Date'):
     return fig
 
 
-def electicity_rates_scatter(df):
+def electricity_rates_scatter(df):
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
@@ -286,13 +289,17 @@ def electicity_rates_scatter(df):
         width=800,
         height=500,
         font=dict(size=12),
-        xaxis=dict(tickvals=df['Year']),
+        xaxis=dict(
+            tickmode='linear',
+            tick0=2010,
+            dtick=2,
+            range=[2010, 2024],
+        ),
         hovermode="x unified",
     )
     fig.update_xaxes(
-        dtick="Y2",
-        tickformat="%Y",
-        range=["2010-01-01", "2024-01-01"],
+        dtick=2,  # every 2 years, no datetime formatting needed
+        range=[2010, 2024],
     )
     fig.update_yaxes(
         range=[0, 37],

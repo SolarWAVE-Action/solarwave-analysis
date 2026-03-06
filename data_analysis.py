@@ -104,16 +104,27 @@ def read_dgstats_data(data_dir, archive_dir=None, date_min='2005-01-01'):
     return df_total
 
 
-def compile_electicity_rates(data_dir):
+def compile_electricity_rates(data_dir, eia_csv=None, cpuc_csv=None):
     """
     Combine US and CA rates from EIA with PG&E data from CPUC and inflation data
     from FRED.
-    TODO: Replace my hardcoded table names with input parameters.
+    EIA data can be downloaded from: https://www.eia.gov/electricity/data/browser/
+    CPUC historic electric cost data can be downloaded from Ecxel download here:
+    https://www.cpuc.ca.gov/industries-and-topics/electrical-energy/electric-costs/historical-electric-cost-data
+    I saved only the first sheet from that file into a csv and read that.
 
     :param str data_dir: csv files containing the downloaded tables
+    :param str eia_csv: File name of EIA average retail electricity data
+    :param str cpuc_csv: File name of CPUC bundled system average rates
     :return pd.DataFrame df: Inflation adjusted bundled average rates
     """
-    file_name = os.path.join(data_dir, 'EIA-Average_retail_price_of_electricity_us_ca.csv')
+    # Fall back on the names I saved the files as if not specified
+    if eia_csv is None:
+        eia_csv = 'EIA-Average_retail_price_of_electricity_us_ca.csv'
+    if cpuc_csv is None:
+        cpuc_csv = 'CPUC-Bundled System Average Rate.csv'
+
+    file_name = os.path.join(data_dir, eia_csv)
     df_eia = pd.read_csv(file_name, skiprows=4)
     df_eia = df_eia.drop(columns=['units', 'source key'])
     df_eia = df_eia.set_index('description')
@@ -121,7 +132,7 @@ def compile_electicity_rates(data_dir):
     df_eia = df_eia[['United States : all sectors', 'California : all sectors']]
     df_eia['Year'] = pd.to_numeric(df_eia.index, downcast='integer', errors='coerce')
 
-    file_name = os.path.join(data_dir, 'CPUC-Bundled System Average Rate.csv')
+    file_name = os.path.join(data_dir, cpuc_csv)
     df_pge = pd.read_csv(file_name, skiprows=2)
     df_pge = df_pge.loc[0:2, :]
     df_pge = df_pge.drop(columns=['Unnamed: 0', 'Unnamed: 21'])
@@ -130,7 +141,7 @@ def compile_electicity_rates(data_dir):
     df_pge['Year'] = pd.to_numeric(df_pge.index, downcast='integer', errors='coerce')
 
     # Join dataframes
-    df = pd.merge(df_eia, df_pge, on='Year')
+    df = pd.merge(df_eia, df_pge, on='Year', how='left')
 
     # Adjust for inflation using FRED CPI
     df_cpi = pd.read_csv(os.path.join(data_dir, 'CPIAUCNS.csv'))
@@ -139,7 +150,9 @@ def compile_electicity_rates(data_dir):
     # Join dataframes
     df = pd.merge(df, df_cpi, on='Year')
 
-    df.rename(columns={'United States : all sectors': 'US', 'California : all sectors': 'CA', 'PG&E ': 'PGE'},
+    df.rename(columns={'United States : all sectors': 'US',
+                       'California : all sectors': 'CA',
+                       'PG&E ': 'PGE'},
               inplace=True)
     df['US'] = pd.to_numeric(df['US'], downcast='float', errors='coerce')
     df['CA'] = pd.to_numeric(df['CA'], downcast='float', errors='coerce')
