@@ -10,13 +10,17 @@ Author: Jenny Folkesson: jenny@solarwaveaction.org
 """
 
 
-def commercial_capacity_per_year(df_total, date_type='App Received Date', y_range=None):
+def commercial_capacity_per_year(df_total,
+                                 date_type='App Received Date',
+                                 y_range=None,
+                                 layout_size=None):
     """
     Bar graph showing added capacity each year.
 
     :param pd.DataFrame df_total: DGStats data for all sectors of interest
     :param str date_type: One of 'App Received Date', 'App Approved Date'
     :param int/None y_range: Set graph Y range
+    :param list/None layout_size: Size of graph (width, height). None sets autosize to True.
     :return go.Figure fig: Plotly bar graph
     """
 
@@ -86,14 +90,23 @@ def commercial_capacity_per_year(df_total, date_type='App Received Date', y_rang
 
     fig.update_layout(
         barmode='stack',
-        autosize=False,
-        width=800,
-        height=500,
+        margin=dict(l=40, r=20, t=20, b=20),
         font=dict(size=12),
         legend={'title': 'Tariff'},
         yaxis_title='System Size DC (kW)',
         xaxis_title=xtitle,
     )
+
+    if layout_size is None:
+        fig.update_layout(
+            autosize=True,
+        )
+    else:
+        fig.update_layout(
+            autosize=False,
+            width=layout_size[0],
+            height=layout_size[1],
+        )
     fig.update_xaxes(
         dtick="M3",
         tickformat="Q%q<br>'%y",
@@ -177,9 +190,10 @@ def dgstats_vs_pge_bargraph(df_total, date_type='App Received Date'):
     fig.update_xaxes(title_text='Application Year', row=1, col=2)
     fig.update_layout(
         barmode='group',
-        autosize=False,
-        width=800,
-        height=500,
+        margin=dict(l=40, r=20, t=20, b=20),
+        autosize=True,
+        # width=800,
+        # height=500,
         font=dict(size=12),
         legend={'title': 'Source, Tariff'},
         yaxis_title='Number of Applications',
@@ -230,18 +244,16 @@ def application_time_bargraph(df):
         offsetgroup=0,
         name='Comp-Appr',
     ))
-    xtitle = 'Application Year'
-    if date_type == 'App Approved Date':
-        xtitle = 'Approved Year'
 
     fig.update_layout(
         barmode='group',
-        autosize=False,
-        width=800,
-        height=400,
+        margin=dict(l=40, r=20, t=20, b=20),
+        autosize=True,
+        # width=800,
+        # height=400,
         font=dict(size=12),
         yaxis_title='Application Time (Days)',
-        xaxis_title=xtitle,
+        xaxis_title='Approved Year',
         legend={'title': 'Time Interval'},
     )
     fig.update_xaxes(
@@ -283,11 +295,13 @@ def electricity_rates_scatter(df):
     )
 
     fig.update_layout(
+        margin=dict(l=40, r=20, t=20, b=20),
         title_x=0.5,
         yaxis_title='Average Electricity Price (¢/kWh)',
         xaxis_title='Year',
-        width=800,
-        height=500,
+        autosize=True,
+        # width=800,
+        # height=500,
         font=dict(size=12),
         xaxis=dict(
             tickmode='linear',

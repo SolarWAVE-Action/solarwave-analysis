@@ -16,6 +16,39 @@ Author: Jenny Folkesson: jenny@solarwaveaction.org
 """
 
 
+def read_stored_data(data_dir, file_name, archive_dir=None):
+    """
+    Check if csv file for merged data exists and reads if it does, creates if
+    it doesn't. Also reads files containing coordinates.
+
+    :param str data_dir: Path to data directory
+    :param str file_name: Name of file in data directory that stores preprocessed data
+    :param str/None archive_dir: Path to directory containing DGStats archival files
+    :return pd.DataFrame temp_data: Merged SOS data over all years
+    """
+    file_path = os.path.join(data_dir, file_name)
+    existing_file = glob.glob(file_path)
+    if len(existing_file) == 0:
+        df_total = read_dgstats_data(data_dir, archive_dir=archive_dir)
+        df_total.to_csv(file_path, index=False)
+    elif len(existing_file) == 1:
+        print("Reading existing file: ", file_path)
+        df_total = pd.read_csv(file_path, low_memory=False)
+        # Convert all dates to datetime objects
+        df_total['App Received Date'] = pd.to_datetime(
+            df_total['App Received Date'], errors='coerce')
+        df_total['App Complete Date'] = pd.to_datetime(
+            df_total['App Complete Date'], errors='coerce')
+        df_total['App Approved Date'] = pd.to_datetime(
+            df_total['App Approved Date'], errors='coerce')
+        df_total['Decommissioned Date'] = pd.to_datetime(
+            df_total['Decommissioned Date'], errors='coerce')
+    else:
+        raise Exception("Can't find file: {}".format(file_path))
+
+    return df_total
+
+
 def read_dgstats_data(data_dir, archive_dir=None, date_min='2005-01-01'):
     """
     Read DGStats applications data files and combine them with DGStats archival
@@ -24,7 +57,7 @@ def read_dgstats_data(data_dir, archive_dir=None, date_min='2005-01-01'):
     https://www.californiadgstats.ca.gov/downloads/
 
     :param str data_dir: Path to directory containing DGStats applications files
-    :param str archive_dir: Path to directory containing DGStats archival files (separate)
+    :param str/None archive_dir: Path to directory containing DGStats archival files (separate)
     :param str date_min: Earliest date to keep in the data
     :return pd.DataFrame df: Dataframe containing all DGStats data (with to this
         analysis irrelevant columns removed)
@@ -87,6 +120,13 @@ def read_dgstats_data(data_dir, archive_dir=None, date_min='2005-01-01'):
         df_total['App Complete Date'], errors='coerce')
     df_total['App Approved Date'] = pd.to_datetime(
         df_total['App Approved Date'], errors='coerce')
+    df_total['Decommissioned Date'] = pd.to_datetime(
+        df_total['Decommissioned Date'], errors='coerce')
+    # Convert to all numerics
+    df_total['Tilt'] = pd.to_numeric(df_total['Tilt'], errors='coerce')
+    df_total['Azimuth'] = pd.to_numeric(df_total['Azimuth'], errors='coerce')
+    # Convert to all strings
+    df_total['NEM Tariff'] = df_total['NEM Tariff'].astype(str)
     # Remove irrelevant columns
     cols = ['IOU'] + [c for c in df_total.columns if c != 'IOU']
     df_total = df_total[cols].iloc[:, :47]
@@ -129,7 +169,8 @@ def compile_electricity_rates(data_dir, eia_csv=None, cpuc_csv=None):
     df_eia = df_eia.drop(columns=['units', 'source key'])
     df_eia = df_eia.set_index('description')
     df_eia = df_eia.T
-    df_eia = df_eia[['United States : all sectors', 'California : all sectors']]
+    df_eia = df_eia[['United States : all sectors', 'California : all sectors',
+                     'United States : commercial', 'California : commercial']]
     df_eia['Year'] = pd.to_numeric(df_eia.index, downcast='integer', errors='coerce')
 
     file_name = os.path.join(data_dir, cpuc_csv)
@@ -189,7 +230,7 @@ def cost_forecast(nbr_years, production, price, price_increase, degradation):
         df.loc[today, "Cumulative Savings ($)"] = df.loc[last_year, "Cumulative Savings ($)"] + df.loc[today, "Annual Savings ($)"]
 
     df['Production (kWh)'] = df['Production (kWh)'].apply(lambda x: f'{int(round(x, 0)):,}')
-    df['Rate ($/kWh)'] = df['Rate ($/kWh)'].apply(lambda x: round(x, 2))
+    df['Rate ($/kWh)'] = df['Rate ($/kWh)'].apply(lambda x: f'{round(x, 2)}')
     df['Annual Savings ($)'] = df['Annual Savings ($)'].apply(lambda x: int(round(x, 0)))
     df['Cumulative Savings ($)'] = df['Cumulative Savings ($)'].apply(lambda x: f'{int(round(x, 0)):,}')
 
