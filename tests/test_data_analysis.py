@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from data_analysis import read_dgstats_data
+from data_analysis import cost_forecast, read_dgstats_data
 
 
 DROP_COLS = [
@@ -32,6 +32,10 @@ REQUIRED_COLS = [
     "App Received Date",
     "App Complete Date",
     "Application Status",
+    "Decommissioned Date",
+    "Tilt",
+    "Azimuth",
+    "NEM Tariff",
 ]
 
 
@@ -155,3 +159,29 @@ def test_read_dgstats_data_without_archive_dir(tmp_path):
     result = read_dgstats_data(data_dir=str(data_dir), archive_dir=None)
     assert len(result) == 1
     assert set(result["IOU"].unique()) == {"SCE"}
+
+
+def test_cost_forecast_shape():
+    df = cost_forecast(nbr_years=5, production=1000, price=0.20, price_increase=3, degradation=0.5)
+    assert len(df) == 5
+    assert list(df.columns) == ["Production (kWh)", "Rate ($/kWh)", "Annual Savings ($)", "Cumulative Savings ($)"]
+
+
+def test_cost_forecast_first_year_values():
+    df = cost_forecast(nbr_years=3, production=1000, price=0.20, price_increase=0, degradation=0)
+    assert df.loc[1, "Annual Savings ($)"] == 200
+    assert df.loc[1, "Production (kWh)"] == "1,000"
+
+
+def test_cost_forecast_degradation_reduces_production():
+    df = cost_forecast(nbr_years=3, production=1000, price=0.20, price_increase=0, degradation=10)
+    prod_1 = int(df.loc[1, "Production (kWh)"].replace(",", ""))
+    prod_2 = int(df.loc[2, "Production (kWh)"].replace(",", ""))
+    assert prod_2 < prod_1
+
+
+def test_cost_forecast_price_increase_raises_rate():
+    df = cost_forecast(nbr_years=3, production=1000, price=0.20, price_increase=10, degradation=0)
+    rate_1 = float(df.loc[1, "Rate ($/kWh)"])
+    rate_2 = float(df.loc[2, "Rate ($/kWh)"])
+    assert rate_2 > rate_1

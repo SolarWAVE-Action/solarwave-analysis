@@ -1,6 +1,11 @@
 import pandas as pd
 
-from data_visualization import commercial_capacity_per_year
+from data_visualization import (
+    application_time_bargraph,
+    commercial_capacity_per_year,
+    dgstats_vs_pge_bargraph,
+    electricity_rates_scatter,
+)
 
 
 def _build_visualization_df():
@@ -47,3 +52,54 @@ def test_commercial_capacity_per_year_approved_date_updates_xaxis_title():
     fig = commercial_capacity_per_year(df, date_type="App Approved Date")
 
     assert fig.layout.xaxis.title.text == "Application Approved Quarter"
+
+
+def test_dgstats_vs_pge_bargraph_returns_four_traces():
+    df = pd.DataFrame({
+        "App Approved Date": pd.to_datetime(["2022-03-01", "2022-06-01", "2023-07-01", "2024-07-01"]),
+        "App Received Date": pd.to_datetime(["2022-01-01", "2022-02-01", "2023-01-01", "2024-01-01"]),
+        "IOU": ["PGE", "PGE", "PGE", "PGE"],
+        "Customer Sector": ["Commercial", "Commercial", "Commercial", "Commercial"],
+        "NEM Tariff": ["1.0", "2.0", "NBT", "NBT"],
+        "System Size DC": [100, 200, 300, 400],
+    })
+
+    fig = dgstats_vs_pge_bargraph(df)
+
+    assert len(fig.data) == 4
+    trace_names = [t.name for t in fig.data]
+    assert "PGE NEM" in trace_names
+    assert "DGSt NEM" in trace_names
+    assert "PGE NBT" in trace_names
+    assert "DGSt NBT" in trace_names
+
+
+def test_application_time_bargraph_has_two_traces():
+    df = pd.DataFrame({
+        "App Approved Date": pd.to_datetime(["2021-06-01", "2022-06-01", "2023-06-01"]),
+        "App Received Date": pd.to_datetime(["2021-01-01", "2022-01-01", "2023-01-01"]),
+        "App Complete Date": pd.to_datetime(["2021-03-01", "2022-03-01", "2023-03-01"]),
+        "System Size DC": [100, 200, 300],
+    })
+
+    fig = application_time_bargraph(df)
+
+    assert len(fig.data) == 2
+    assert fig.data[0].name == "Rec-Comp"
+    assert fig.data[1].name == "Comp-Appr"
+    assert fig.layout.yaxis.title.text == "Application Time (Days)"
+
+
+def test_electricity_rates_scatter_has_three_traces():
+    df = pd.DataFrame({
+        "Year": [2020, 2021, 2022],
+        "US": [10.0, 11.0, 12.0],
+        "CA": [15.0, 16.0, 17.0],
+        "PGE": [20.0, 21.0, 22.0],
+    })
+
+    fig = electricity_rates_scatter(df)
+
+    assert len(fig.data) == 3
+    assert [t.name for t in fig.data] == ["US", "CA", "PGE"]
+    assert fig.layout.yaxis.title.text == "Average Electricity Price (¢/kWh)"
