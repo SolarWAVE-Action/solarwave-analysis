@@ -203,6 +203,12 @@ def dgstats_vs_pge_bargraph(df_total, date_type='App Received Date'):
 
 
 def application_time_bargraph(df):
+    """
+    Bar plot of DGStats application times.
+
+    :param pd.DataFrame df: DGstats data
+    :return go.Figure fig: Figure handle
+    """
 
     df_system = df.copy()
 
@@ -264,7 +270,16 @@ def application_time_bargraph(df):
     return fig
 
 
-def electricity_rates_scatter(df):
+def electricity_rates_scatter(df, max_year=None):
+    """
+    Scatter plot of bundled electricity rates over years.
+    Compiling data and adjustment for inflation happens in
+    data_analysis.compile_electricity_rates.
+
+    :param pd.DataFrame df: US, CA, and PGE electricity rates
+    :param int max_year: Maximum year on x-axis
+    :return go.Figure fig: Figure data handle
+    """
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
@@ -307,17 +322,19 @@ def electricity_rates_scatter(df):
             tickmode='linear',
             tick0=2010,
             dtick=2,
-            range=[2010, 2024],
+            range=[2010, df['Year'].max()],
         ),
         hovermode="x unified",
     )
+    if max_year is None:
+        max_year = df['Year'].max()
     fig.update_xaxes(
         dtick=2,  # every 2 years, no datetime formatting needed
-        range=[2010, 2024],
+        range=[2010, max_year],
     )
-    fig.update_yaxes(
-        range=[0, 37],
-    )
+    # fig.update_yaxes(
+    #     range=[0, 37],
+    # )
     fig.update_traces(hovertemplate=None)
     return fig
 

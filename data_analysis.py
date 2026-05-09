@@ -144,7 +144,7 @@ def read_dgstats_data(data_dir, archive_dir=None, date_min='2005-01-01'):
     return df_total
 
 
-def compile_electricity_rates(data_dir, eia_csv=None, cpuc_csv=None):
+def compile_electricity_rates(data_dir, eia_csv=None, cpuc_csv=None, nominal_year=None):
     """
     Combine US and CA rates from EIA with PG&E data from CPUC and inflation data
     from FRED.
@@ -156,6 +156,7 @@ def compile_electricity_rates(data_dir, eia_csv=None, cpuc_csv=None):
     :param str data_dir: csv files containing the downloaded tables
     :param str eia_csv: File name of EIA average retail electricity data
     :param str cpuc_csv: File name of CPUC bundled system average rates
+    :param int nominal_year: Base year for which rates will be adjusted for inflation
     :return pd.DataFrame df: Inflation adjusted bundled average rates
     """
     # Fall back on the names I saved the files as if not specified
@@ -193,13 +194,21 @@ def compile_electricity_rates(data_dir, eia_csv=None, cpuc_csv=None):
 
     df.rename(columns={'United States : all sectors': 'US',
                        'California : all sectors': 'CA',
-                       'PG&E ': 'PGE'},
+                       'PG&E ': 'PGE',
+                       'United States : commercial': 'US Comm',
+                       'California : commercial': 'CA Comm'},
               inplace=True)
+
+    if nominal_year is None:
+        nominal_year = df['Year'].max()
+
+    inflation_val = df.iloc[df['Year'] == nominal_year]['CPIAUCNS'].item()
+
     df['US'] = pd.to_numeric(df['US'], downcast='float', errors='coerce')
     df['CA'] = pd.to_numeric(df['CA'], downcast='float', errors='coerce')
-    df['US'] = df['US'].div(df['CPIAUCNS']) * df.iloc[-1]['CPIAUCNS']
-    df['CA'] = df['CA'].div(df['CPIAUCNS']) * df.iloc[-1]['CPIAUCNS']
-    df['PGE'] = df['PGE'].div(df['CPIAUCNS']) * df.iloc[-1]['CPIAUCNS']
+    df['US'] = df['US'].div(df['CPIAUCNS']) * inflation_val
+    df['CA'] = df['CA'].div(df['CPIAUCNS']) * inflation_val
+    df['PGE'] = df['PGE'].div(df['CPIAUCNS']) * inflation_val
     return df
 
 
