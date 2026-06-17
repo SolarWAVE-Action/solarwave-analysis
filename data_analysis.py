@@ -161,7 +161,7 @@ def compile_electricity_rates(data_dir, eia_csv=None, cpuc_csv=None, nominal_yea
     """
     # Fall back on the names I saved the files as if not specified
     if eia_csv is None:
-        eia_csv = 'EIA-Average_retail_price_of_electricity_us_ca.csv'
+        eia_csv = 'EIA-Average_retail_price_of_electricity.csv'
     if cpuc_csv is None:
         cpuc_csv = 'CPUC-Bundled System Average Rate.csv'
 
@@ -171,7 +171,8 @@ def compile_electricity_rates(data_dir, eia_csv=None, cpuc_csv=None, nominal_yea
     df_eia = df_eia.set_index('description')
     df_eia = df_eia.T
     df_eia = df_eia[['United States : all sectors', 'California : all sectors',
-                     'United States : commercial', 'California : commercial']]
+                     'United States : commercial', 'California : commercial',
+                     'California : residential']]
     df_eia['Year'] = pd.to_numeric(df_eia.index, downcast='integer', errors='coerce')
 
     file_name = os.path.join(data_dir, cpuc_csv)
@@ -196,7 +197,8 @@ def compile_electricity_rates(data_dir, eia_csv=None, cpuc_csv=None, nominal_yea
                        'California : all sectors': 'CA',
                        'PG&E ': 'PGE',
                        'United States : commercial': 'US Comm',
-                       'California : commercial': 'CA Comm'},
+                       'California : commercial': 'CA Comm',
+                       'California : residential': 'CA Res'},
               inplace=True)
 
     if nominal_year is None:
@@ -204,10 +206,18 @@ def compile_electricity_rates(data_dir, eia_csv=None, cpuc_csv=None, nominal_yea
 
     inflation_val = df.iloc[df['Year'] == nominal_year]['CPIAUCNS'].item()
 
+    # Adjust all columns for inflation
+
     df['US'] = pd.to_numeric(df['US'], downcast='float', errors='coerce')
     df['CA'] = pd.to_numeric(df['CA'], downcast='float', errors='coerce')
+    df['US Comm'] = pd.to_numeric(df['US Comm'], downcast='float', errors='coerce')
+    df['CA Comm'] = pd.to_numeric(df['CA Comm'], downcast='float', errors='coerce')
+    df['CA Res'] = pd.to_numeric(df['CA Res'], downcast='float', errors='coerce')
     df['US'] = df['US'].div(df['CPIAUCNS']) * inflation_val
+    df['US Comm'] = df['US Comm'].div(df['CPIAUCNS']) * inflation_val
     df['CA'] = df['CA'].div(df['CPIAUCNS']) * inflation_val
+    df['CA Comm'] = df['CA Comm'].div(df['CPIAUCNS']) * inflation_val
+    df['CA Res'] = df['CA Res'].div(df['CPIAUCNS']) * inflation_val
     df['PGE'] = df['PGE'].div(df['CPIAUCNS']) * inflation_val
     return df
 

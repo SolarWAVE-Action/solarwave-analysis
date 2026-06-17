@@ -338,3 +338,112 @@ def electricity_rates_scatter(df, max_year=None):
     fig.update_traces(hovertemplate=None)
     return fig
 
+
+def what_didnt_kill_rooftop_solar_graph(df, max_date=None, date_type='App Received Date'):
+    """
+    Visualization of the underlying rooftop solar applications with one of Borenstein's
+    Before/After bar sets superimposed, along with NBT decision and application dates.
+
+    :param pd.DataFrame df: Dataframe containing solar applications from DGStats
+    :param str max_date: The most recent date to be used from df
+    :param str date_type: For applications, it's 'App Recieved Date'
+    :return go.Figure fig: Resulting figure
+    """
+
+    df_system = df.copy()
+    df_system['App Days'] = (df_system['App Approved Date'] -
+                             df_system['App Received Date']).dt.days
+    df_system = df_system[df_system['Customer Sector'] == 'Residential']
+    if max_date is not None:
+        df_system = df_system[(df_system['App Received Date'] <= max_date)]
+
+    df = df_system[(df_system['NEM Tariff'] == '1.0') | (df_system['NEM Tariff'] == '2.0')]
+    df = df[[date_type, 'System Size DC', 'App Days']]
+    df = df.set_index(date_type).rename_axis(None)
+    df['Nbr Installations'] = 1
+    df = df.resample("ME").agg({'System Size DC': 'sum', 'Nbr Installations': 'count'})
+    df['Month'] = df.index
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=df['Month'],
+        y=df['System Size DC'],
+        hovertext=df['Month'].dt.strftime('%B %Y'),
+        hovertemplate='%{hovertext}<br>System Size: %{y:.1f} kW<extra>NEM</extra>',
+        marker_color='rgb(255,217,47)',
+        offsetgroup=0,
+        xperiod="M1",
+        name='NEM Applications',
+    ))
+
+    df = df_system[df_system['NEM Tariff'] == 'NBT']
+    df = df[[date_type, 'System Size DC', 'App Days']]
+    df = df.set_index(date_type).rename_axis(None)
+    df['Nbr Installations'] = 1
+    df = df.resample("ME").agg({'System Size DC': 'sum', 'Nbr Installations': 'count'})
+    df['Month'] = df.index
+
+    fig.add_trace(go.Bar(
+        x=df['Month'],
+        y=df['System Size DC'],
+        hovertext=df['Month'].dt.strftime('%B %Y'),
+        hovertemplate='%{hovertext}<br>System Size: %{y:.1f} kW<extra>NBT</extra>',
+        marker_color='rgb(230,171,2)',
+        offsetgroup=0,
+        xperiod="M1",
+        name='NBT Applications',
+    ))
+    xtitle = 'Application Received Date'
+    fig.update_layout(
+        barmode='stack',
+        autosize=False,
+        width=1000,
+        height=700,
+        yaxis_title='System Size DC (MW)',  #'Number of Applications',
+        xaxis_title=xtitle,
+        legend={'title': 'Dates & Applications'},
+    )
+
+    fig.add_vline(x=datetime.datetime(2022, 12, 1).timestamp() * 1000,
+                  line_width=2, line_dash="dash", line_color="red",
+                  )
+    fig.add_vline(x=datetime.datetime(2023, 4, 15).timestamp() * 1000,
+                  line_width=2, line_dash="dash", line_color="green",
+                  )
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode='lines',
+        line=dict(color='red', width=2, dash='dash'),
+        name='NBT Decision',
+    ))
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode='lines',
+        line=dict(color='green', width=2, dash='dash'),
+        name='NBT Effective',
+    ))
+
+    fig.add_vrect(x0="2022-12-01", x1="2023-06-01",
+                  annotation_text="After",
+                  annotation_position="top left",
+                  annotation=dict(font_size=16),
+                  fillcolor="green",
+                  opacity=0.25,
+                  line_width=0,
+                  )
+
+    fig.add_vrect(x0="2022-06-01", x1="2022-11-30",
+                  annotation_text="Before",
+                  annotation_position="top left",
+                  annotation=dict(font_size=16),
+                  fillcolor="red",
+                  opacity=0.25,
+                  line_width=0)
+
+    fig.update_xaxes(
+        dtick="M12",
+        tickformat="%Y",
+        range=["2019-01-01", max_date],
+        tickangle=0,
+    )
+    # fig.update_layout(annotations=[{**a, **{"y":.5}} for a in fig.to_dict()["layout"]["annotations"]])
+
+    return fig
