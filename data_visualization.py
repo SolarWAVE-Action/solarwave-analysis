@@ -339,12 +339,13 @@ def electricity_rates_scatter(df, max_year=None):
     return fig
 
 
-def what_didnt_kill_rooftop_solar_graph(df, max_date=None, date_type='App Received Date'):
+def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, date_type='App Received Date'):
     """
     Visualization of the underlying rooftop solar applications with one of Borenstein's
     Before/After bar sets superimposed, along with NBT decision and application dates.
 
     :param pd.DataFrame df: Dataframe containing solar applications from DGStats
+    :param list[dict] dates: Before/After time intervals [{x0, x1}, {x0, x1}]
     :param str max_date: The most recent date to be used from df
     :param str date_type: For applications, it's 'App Recieved Date'
     :return go.Figure fig: Resulting figure
@@ -363,7 +364,7 @@ def what_didnt_kill_rooftop_solar_graph(df, max_date=None, date_type='App Receiv
     df['Nbr Installations'] = 1
     df = df.resample("ME").agg({'System Size DC': 'sum', 'Nbr Installations': 'count'})
     df['Month'] = df.index
-
+    # Plot NEM applications
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=df['Month'],
@@ -382,7 +383,7 @@ def what_didnt_kill_rooftop_solar_graph(df, max_date=None, date_type='App Receiv
     df['Nbr Installations'] = 1
     df = df.resample("ME").agg({'System Size DC': 'sum', 'Nbr Installations': 'count'})
     df['Month'] = df.index
-
+    # Plot NBT applications
     fig.add_trace(go.Bar(
         x=df['Month'],
         y=df['System Size DC'],
@@ -403,25 +404,34 @@ def what_didnt_kill_rooftop_solar_graph(df, max_date=None, date_type='App Receiv
         xaxis_title=xtitle,
         legend={'title': 'Dates & Applications'},
     )
-
+    # Draw dashed lines for dates: NBT decision and NEM cutoff
     fig.add_vline(x=datetime.datetime(2022, 12, 1).timestamp() * 1000,
                   line_width=2, line_dash="dash", line_color="red",
                   )
     fig.add_vline(x=datetime.datetime(2023, 4, 15).timestamp() * 1000,
                   line_width=2, line_dash="dash", line_color="green",
                   )
+    # Add dashed lines to legend
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode='lines',
+        line=dict(color='green', width=2, dash='dash'),
+        name='NEM Cutoff',
+    ))
     fig.add_trace(go.Scatter(
         x=[None], y=[None], mode='lines',
         line=dict(color='red', width=2, dash='dash'),
         name='NBT Decision',
     ))
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode='lines',
-        line=dict(color='green', width=2, dash='dash'),
-        name='NBT Effective',
-    ))
-
-    fig.add_vrect(x0="2022-12-01", x1="2023-06-01",
+    # Draw Before interval: transparent rectangle in red
+    fig.add_vrect(dates[0]['x0'], dates[0]['x1'],
+                  annotation_text="Before",
+                  annotation_position="top left",
+                  annotation=dict(font_size=16),
+                  fillcolor="red",
+                  opacity=0.25,
+                  line_width=0)
+    # Draw After inteval: transparent rectangle in green
+    fig.add_vrect(dates[1]['x0'], dates[1]['x1'],
                   annotation_text="After",
                   annotation_position="top left",
                   annotation=dict(font_size=16),
@@ -430,20 +440,11 @@ def what_didnt_kill_rooftop_solar_graph(df, max_date=None, date_type='App Receiv
                   line_width=0,
                   )
 
-    fig.add_vrect(x0="2022-06-01", x1="2022-11-30",
-                  annotation_text="Before",
-                  annotation_position="top left",
-                  annotation=dict(font_size=16),
-                  fillcolor="red",
-                  opacity=0.25,
-                  line_width=0)
-
     fig.update_xaxes(
         dtick="M12",
         tickformat="%Y",
         range=["2019-01-01", max_date],
         tickangle=0,
     )
-    # fig.update_layout(annotations=[{**a, **{"y":.5}} for a in fig.to_dict()["layout"]["annotations"]])
 
     return fig
