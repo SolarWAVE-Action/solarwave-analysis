@@ -397,9 +397,8 @@ def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, date_type='App
     xtitle = 'Application Received Date'
     fig.update_layout(
         barmode='stack',
-        autosize=False,
-        width=1000,
-        height=700,
+        margin=dict(l=40, r=20, t=20, b=20),
+        autosize=True,
         yaxis_title='System Size DC (MW)',  #'Number of Applications',
         xaxis_title=xtitle,
         legend={'title': 'Dates & Applications'},
@@ -426,17 +425,17 @@ def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, date_type='App
     fig.add_vrect(dates[0]['x0'], dates[0]['x1'],
                   annotation_text="Before",
                   annotation_position="top left",
-                  annotation=dict(font_size=16),
+                  annotation=dict(font_size=12),
                   fillcolor="red",
-                  opacity=0.25,
+                  opacity=0.15,
                   line_width=0)
     # Draw After inteval: transparent rectangle in green
     fig.add_vrect(dates[1]['x0'], dates[1]['x1'],
                   annotation_text="After",
                   annotation_position="top left",
-                  annotation=dict(font_size=16),
+                  annotation=dict(font_size=12),
                   fillcolor="green",
-                  opacity=0.25,
+                  opacity=0.15,
                   line_width=0,
                   )
 
