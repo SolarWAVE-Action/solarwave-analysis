@@ -3,6 +3,9 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+import plotly.io as pio
+pio.templates.default = 'plotly_white'
+
 """
 Data visualizations for SolarWAVE Action.
 
@@ -72,7 +75,7 @@ def commercial_capacity_per_year(df_total,
 
     fig.add_vline(x=datetime.datetime(2023, 4, 15).timestamp() * 1000,
                   line_width=2, line_dash="dash", line_color="blue",
-                  annotation_text="NBT",
+                  annotation_text="NEM Cutoff",
                   annotation_position="top right",
                   annotation_font_size=12,
                   )
