@@ -450,3 +450,43 @@ def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, date_type='App
     )
 
     return fig
+
+
+def cost_shift_bargraph():
+    """
+    Visually compare different cost shift measures and reference them to wildfire spending
+    and earnings.
+    Sources: PUDL https://data.catalyst.coop/preview/pudl/out_ferc1__yearly_income_statements_sched114?return_q=name%3Aferc1&filters=%255B%257B%2522fieldName%2522%253A%2522report_year%2522%252C%2522fieldType%2522%253A%2522number%2522%252C%2522operation%2522%253A%2522equals%2522%252C%2522value%2522%253A2024%257D%252C%257B%2522fieldName%2522%253A%2522income_type%2522%252C%2522fieldType%2522%253A%2522text%2522%252C%2522operation%2522%253A%2522contains%2522%252C%2522value%2522%253A%2522net_income_loss%2522%257D%255D
+             Energy & Policy Institute: https://energyandpolicy.org/utility-profit-report/
+    :return go.Figure fig: Resulting bar graph
+    """
+    fig = make_subplots(rows=1, cols=2, column_widths=[5/8, 3/8])
+
+    y_vals = [8.5, 7.0, 3.8, 2.7, -1.5]
+    fig.add_trace(
+        go.Bar(x=['PAO', 'CPUC', 'Borenstein', 'SolarWAVE', 'M.Cubed'], y=y_vals,
+               marker_color='rgb(141,160,203)'),
+        row=1, col=1,
+    )
+    fig.update_xaxes(title_text='2024 Cost Shift Estimates', row=1, col=1)
+
+    y_vals = [8.985, 5.384, 8.675]
+    fig.add_trace(
+        go.Bar(x=['2024 Wildfire Spending', '2024 Net Profits', '2025 Net Profits'], y=y_vals,
+               marker_color='rgb(117,112,179)'),
+        row=1, col=2,
+    )
+    fig.update_xaxes(title_text='IOU Wildfire Spending and Profits', row=1, col=2)
+
+    fig.update_yaxes(
+        range=[-2, 9],
+    )
+
+    fig.update_layout(
+        margin=dict(l=40, r=20, t=20, b=20),
+        autosize=True,
+        font=dict(size=12),
+        yaxis_title='$ Billion US Dollars',
+        showlegend=False,
+    )
+    return fig
