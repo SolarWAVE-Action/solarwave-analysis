@@ -35,7 +35,7 @@ def test_commercial_capacity_per_year_builds_expected_traces():
     assert fig.layout.xaxis.title.text == "Application Received Quarter"
     assert len(fig.layout.shapes) == 2
     assert len(fig.layout.annotations) == 2
-    assert [annotation.text for annotation in fig.layout.annotations] == ["NBT", "AB 2143"]
+    assert [annotation.text for annotation in fig.layout.annotations] == ["NEM Cutoff", "AB 2143"]
 
     # NEM traces aggregate 1.0 and 2.0 rows in Q1 2023.
     nem_quarterly_capacity = dict(zip(fig.data[0].x, fig.data[0].y))
