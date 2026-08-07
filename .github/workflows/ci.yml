@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Conda (Miniforge)
         uses: conda-incubator/setup-miniconda@v3
@@ -21,7 +21,6 @@ jobs:
           environment-file: mamba_environment.yml
           auto-activate: false
           conda-remove-defaults: true
-          use-mamba: true
 
       - name: Run tests
         shell: bash -l {0}
