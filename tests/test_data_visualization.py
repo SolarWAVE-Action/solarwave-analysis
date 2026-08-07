@@ -3,8 +3,10 @@ import pandas as pd
 from data_visualization import (
     application_time_bargraph,
     commercial_capacity_per_year,
+    cost_shift_bargraph,
     dgstats_vs_pge_bargraph,
     electricity_rates_scatter,
+    what_didnt_kill_rooftop_solar_graph,
 )
 
 
@@ -103,3 +105,70 @@ def test_electricity_rates_scatter_has_three_traces():
     assert len(fig.data) == 3
     assert [t.name for t in fig.data] == ["US", "CA", "PGE"]
     assert fig.layout.yaxis.title.text == "Average Electricity Price (¢/kWh)"
+
+
+def test_commercial_capacity_per_year_layout_size():
+    df = _build_visualization_df()
+    fig = commercial_capacity_per_year(df, layout_size=[800, 400])
+    assert fig.layout.width == 800
+    assert fig.layout.height == 400
+    assert not fig.layout.autosize
+
+
+def test_commercial_capacity_per_year_y_range():
+    df = _build_visualization_df()
+    fig = commercial_capacity_per_year(df, y_range=5000)
+    assert fig.layout.yaxis.range[1] == 5000
+
+
+def test_cost_shift_bargraph_structure():
+    fig = cost_shift_bargraph()
+    assert len(fig.data) == 2
+    assert fig.data[0].name == "PGE NEM"
+    assert fig.data[1].name == "IOU"
+    assert not fig.layout.showlegend
+
+
+def test_cost_shift_bargraph_yaxis_range():
+    fig = cost_shift_bargraph()
+    assert fig.layout.yaxis.range[0] == -2
+    assert fig.layout.yaxis.range[1] == 10
+
+
+def _build_solar_graph_df():
+    return pd.DataFrame({
+        "NEM Tariff": ["1.0", "2.0", "NBT", "NBT"],
+        "App Received Date": pd.to_datetime(
+            ["2022-01-15", "2022-06-15", "2023-06-01", "2023-08-01"]
+        ),
+        "App Approved Date": pd.to_datetime(
+            ["2022-02-01", "2022-07-01", "2023-07-01", "2023-09-01"]
+        ),
+        "System Size DC": [10.0, 20.0, 30.0, 40.0],
+        "Customer Sector": ["Residential", "Residential", "Residential", "Residential"],
+    })
+
+
+def test_what_didnt_kill_rooftop_solar_graph_trace_names():
+    df = _build_solar_graph_df()
+    dates = [
+        {"x0": "2021-06-01", "x1": "2022-12-01"},
+        {"x0": "2023-04-15", "x1": "2024-06-01"},
+    ]
+    fig = what_didnt_kill_rooftop_solar_graph(df, dates, max_date="2024-01-01")
+    trace_names = [t.name for t in fig.data]
+    assert "NEM Applications" in trace_names
+    assert "NBT Applications" in trace_names
+
+
+def test_what_didnt_kill_rooftop_solar_graph_filters_non_residential():
+    df = _build_solar_graph_df()
+    df.loc[0, "Customer Sector"] = "Commercial"
+    dates = [
+        {"x0": "2021-06-01", "x1": "2022-12-01"},
+        {"x0": "2023-04-15", "x1": "2024-06-01"},
+    ]
+    fig = what_didnt_kill_rooftop_solar_graph(df, dates, max_date="2024-01-01")
+    nem_trace = next(t for t in fig.data if t.name == "NEM Applications")
+    nem_total = sum(y for y in nem_trace.y if y is not None)
+    assert nem_total == 20.0
