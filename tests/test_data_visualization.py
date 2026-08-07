@@ -124,15 +124,15 @@ def test_commercial_capacity_per_year_y_range():
 def test_cost_shift_bargraph_structure():
     fig = cost_shift_bargraph()
     assert len(fig.data) == 2
-    assert fig.data[0].name == "PGE NEM"
-    assert fig.data[1].name == "IOU"
+    assert fig.data[0].x == ('PAO', 'CPUC', 'Borenstein', 'SolarWAVE', 'M.Cubed')
+    assert fig.data[1].x == ('2024 Wildfire Spending', '2024 Net Profits', '2025 Net Profits')
     assert not fig.layout.showlegend
 
 
 def test_cost_shift_bargraph_yaxis_range():
     fig = cost_shift_bargraph()
     assert fig.layout.yaxis.range[0] == -2
-    assert fig.layout.yaxis.range[1] == 10
+    assert fig.layout.yaxis.range[1] == 9
 
 
 def _build_solar_graph_df():
