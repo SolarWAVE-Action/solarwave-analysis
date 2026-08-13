@@ -1,6 +1,10 @@
+import datetime
+
 import pandas as pd
+import plotly.graph_objects as go
 
 from data_visualization import (
+    add_copyright,
     application_time_bargraph,
     commercial_capacity_per_year,
     cost_shift_bargraph,
@@ -131,8 +135,8 @@ def test_cost_shift_bargraph_structure():
 
 def test_cost_shift_bargraph_yaxis_range():
     fig = cost_shift_bargraph()
-    assert fig.layout.yaxis.range[0] == -2
-    assert fig.layout.yaxis.range[1] == 9
+    assert fig.layout.yaxis.range[0] == -2.8
+    assert fig.layout.yaxis.range[1] == 10.5
 
 
 def _build_solar_graph_df():
@@ -172,3 +176,58 @@ def test_what_didnt_kill_rooftop_solar_graph_filters_non_residential():
     nem_trace = next(t for t in fig.data if t.name == "NEM Applications")
     nem_total = sum(y for y in nem_trace.y if y is not None)
     assert nem_total == 20.0
+
+
+def test_add_copyright_adds_logo():
+    fig = go.Figure()
+    add_copyright("logo.png", fig)
+    assert len(fig.layout.images) == 1
+    assert fig.layout.images[0].source == "logo.png"
+
+
+def test_add_copyright_logo_anchored_top_right():
+    fig = go.Figure()
+    add_copyright("logo.png", fig)
+    image = fig.layout.images[0]
+    assert image.xanchor == "right"
+    assert image.yanchor == "top"
+
+
+def test_add_copyright_logo_default_position():
+    fig = go.Figure()
+    add_copyright("logo.png", fig)
+    image = fig.layout.images[0]
+    assert image.x == 0.99
+    assert image.y == 1.10
+
+
+def test_add_copyright_logo_custom_position():
+    fig = go.Figure()
+    add_copyright("logo.png", fig, x=0.8, y=1.2)
+    image = fig.layout.images[0]
+    assert image.x == 0.8
+    assert image.y == 1.2
+
+
+def test_add_copyright_annotation_contains_year_and_org():
+    fig = go.Figure()
+    add_copyright("logo.png", fig)
+    yr = datetime.date.today().year
+    copyright_ann = next(a for a in fig.layout.annotations if str(yr) in a.text)
+    assert "SolarWAVE Action" in copyright_ann.text
+    assert "©" in copyright_ann.text
+
+
+def test_add_copyright_annotation_positioned_left_of_logo():
+    fig = go.Figure()
+    add_copyright("logo.png", fig, x=0.99, y=1.10)
+    yr = datetime.date.today().year
+    ann = next(a for a in fig.layout.annotations if str(yr) in a.text)
+    assert ann.x < 0.99
+    assert ann.xanchor == "right"
+
+
+def test_add_copyright_returns_figure():
+    fig = go.Figure()
+    result = add_copyright("logo.png", fig)
+    assert result is fig
