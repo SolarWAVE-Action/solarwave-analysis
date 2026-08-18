@@ -1,3 +1,4 @@
+import base64
 import datetime
 import plotly.express as px
 import plotly.graph_objects as go
@@ -13,23 +14,33 @@ Author: Jenny Folkesson: jenny@solarwaveaction.org
 """
 
 
-def add_copyright(logo_path, fig, x=0.99, y=1.10):
+SOLARWAVE_BLUE = '#1775c9'
+
+
+def add_logo(logo_path, fig, x=0.99, y=1.1):
     """
-    Add logo and copyright to the top-right corner of a figure.
+    Add logo to the top-right corner of a figure.
 
     x and y are paper coordinates: 0–1 spans the plot area, and y > 1
     goes into the top margin. Increase the figure's top margin
     (e.g. margin=dict(t=80)) if the logo or text is clipped.
 
-    :param str logo_path: Path to logo image
+    :param str logo_path: Path to logo image, or a public URL (preferred for blog export)
     :param go.Figure fig: Plotly figure
     :param float x: Right edge of the logo in paper coordinates (default 0.99)
     :param float y: Top edge of the logo in paper coordinates (default 1.10)
     :return go.Figure fig: Figure with logo and copyright added
     """
+    if logo_path.startswith("http"):
+        source = logo_path
+    else:
+        with open(logo_path, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+        source = f"data:image/png;base64,{encoded_string}"
+
     sizex, sizey = 0.12, 0.09
     fig.layout.images = [dict(
-        source=logo_path,
+        source=source,
         xref="paper",
         yref="paper",
         x=x,
@@ -39,21 +50,6 @@ def add_copyright(logo_path, fig, x=0.99, y=1.10):
         xanchor="right",
         yanchor="top",
     )]
-
-    yr = datetime.date.today().year
-    fig.add_annotation(
-        text=f"© {yr} SolarWAVE Action. All Rights Reserved.",
-        align='right',
-        showarrow=False,
-        xref='paper',
-        yref='paper',
-        x=x - sizex - 0.01,
-        y=y - sizey / 2,
-        xanchor='right',
-        yanchor='middle',
-        font=dict(color="gray", size=8),
-        borderwidth=0,
-    )
     return fig
 
 
@@ -504,13 +500,12 @@ def cost_shift_bargraph():
     Form 1 filings from PUDL https://data.catalyst.coop/preview/pudl/out_ferc1__yearly_income_statements_sched114?return_q=name%3Aferc1&filters=%255B%257B%2522fieldName%2522%253A%2522report_year%2522%252C%2522fieldType%2522%253A%2522number%2522%252C%2522operation%2522%253A%2522equals%2522%252C%2522value%2522%253A2024%257D%252C%257B%2522fieldName%2522%253A%2522income_type%2522%252C%2522fieldType%2522%253A%2522text%2522%252C%2522operation%2522%253A%2522contains%2522%252C%2522value%2522%253A%2522net_income_loss%2522%257D%255D
     :return go.Figure fig: Resulting bar graph
     """
-    ACCENT = 'rgb(39, 174, 96)'   # SolarWAVE bar — the number the post is built around
     MUTED = 'rgb(190, 185, 205)'  # other estimate bars, stepped back
 
     cost_method = ['PAO', 'CPUC', 'Borenstein', 'SolarWAVE', 'M.Cubed']
     cost_billions = [8.455, 7.0, 3.856, 2.547, -1.5]
     left_labels = ['$8.5B', '$7.0B', '$3.8B', '$2.5B', '–$1.5B']
-    bar_colors = [MUTED, MUTED, MUTED, ACCENT, MUTED]
+    bar_colors = [MUTED, MUTED, MUTED, SOLARWAVE_BLUE, MUTED]
 
     fig = make_subplots(rows=1, cols=2, column_widths=[5/8, 3/8])
 
@@ -535,7 +530,7 @@ def cost_shift_bargraph():
         row=1, col=1,
     )
 
-    cost_category = ['2024 Wildfire Spending', '2024 Net Profits', '2025 Net Profits']
+    cost_category = ['2024<br>Wildfire<br>Spending', '2024<br>Net<br>Profits', '2025<br>Net<br>Profits']
     amount_billions = [8.985, 5.384, 8.675]
     right_labels = ['$9.0B', '$5.4B', '$8.7B']
 
@@ -565,22 +560,37 @@ def cost_shift_bargraph():
         text='↓ likely lower',
         showarrow=False,
         yshift=45,
-        font=dict(size=10, color=ACCENT),
+        font=dict(size=10, color=SOLARWAVE_BLUE),
         xref='x',
         yref='y',
     )
 
+    fig.add_annotation(
+        text="Figure. Left: Comparison of different 2024 cost shift estimates from PAO, CPUC, Borenstein, SolarWAVE Action and M.Cubed.<br>Right: 2024 wildfire spending and 2024-25 net profits in total for the three IOUs PG&E, SCE and SDG&E for comparison.<br>Sources: PAO, CPUC, Borenstein (2024), M.Cubed (2024), FERC Form 1 filings via PUDL.",
+        xref="paper",
+        yref="paper",
+        x=0,  # 0 = left, 0.5 = center, 1 = right
+        y=-0.4,  # Position below the x-axis
+        showarrow=False,
+        font=dict(size=12),
+        xanchor="left",
+        yanchor="bottom",
+        align="left",
+    )
+
     fig.update_layout(
-        margin=dict(l=40, r=20, t=80, b=80),
+        margin=dict(l=40, r=20, t=75, b=180),
         autosize=True,
+        height=600,
         font=dict(size=12),
         yaxis_title='$ Billion US Dollars',
         showlegend=False,
-        # title=dict(
-        #     text='Even the corrected $2.5B cost shift is a fraction of what utilities already spend and earn',
-        #     x=0.0,
-        #     xanchor='left',
-        #     font=dict(size=14),
-        # ),
+        title=dict(
+            text='Even the corrected $2.5B cost shift<br>is a fraction of what utilities already spend and earn',
+            x=0.05,
+            xanchor='left',
+            font=dict(size=15),
+        ),
     )
+
     return fig
