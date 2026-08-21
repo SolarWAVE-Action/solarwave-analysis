@@ -103,6 +103,9 @@ def read_dgstats_data(data_dir, archive_dir=None, date_min='2005-01-01'):
     # Only keep solar applications
     df_total = df_total[df_total['Technology Type'].str.contains('Photovoltaic')]
     df_total = df_total[df_total['System Size AC'] > 0]
+    # Convert from kW to MW
+    df_total['System Size AC'] = df_total['System Size AC'] / 1000
+    df_total['System Size DC'] = df_total['System Size DC'] / 1000
     # According to the DGStats Download Interconnected Applications Data Set
     # Data Key, there should only be two main Application Status
     df_total = df_total[(df_total['Application Status'] == 'Interconnected') |

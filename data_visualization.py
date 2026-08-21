@@ -3,9 +3,12 @@ import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import re
+import textwrap
 
 import plotly.io as pio
 pio.templates.default = 'plotly_white'
+pio.templates['plotly_white'].layout.font.family = 'Montserrat, sans-serif'
 
 """
 Data visualizations for SolarWAVE Action.
@@ -38,7 +41,7 @@ def add_logo(logo_path, fig, x=0.99, y=1.1):
             encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
         source = f"data:image/png;base64,{encoded_string}"
 
-    sizex, sizey = 0.12, 0.09
+    sizex, sizey = 0.144, 0.108
     fig.layout.images = [dict(
         source=source,
         xref="paper",
@@ -53,10 +56,34 @@ def add_logo(logo_path, fig, x=0.99, y=1.1):
     return fig
 
 
+def write_html_with_fonts(fig, write_path):
+    html = fig.to_html(full_html=True,
+                       include_plotlyjs='cdn',
+                       config={"responsive": True, "displaylogo": False})
+    font_link = (
+              '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+              '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+              '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">\n')
+    # Re-layout after fonts load — Plotly renders before async Google Fonts arrive,
+    # so without this the fallback sans-serif is used permanently.
+    font_ready_script = (
+        '<script>\n'
+        'document.fonts.ready.then(function() {\n'
+        '  var gd = document.querySelector(".plotly-graph-div");\n'
+        '  if (gd) Plotly.relayout(gd, {"font.family": "Montserrat, sans-serif"});\n'
+        '});\n'
+        '</script>\n')
+    html = html.replace('</head>', font_link + '</head>', 1)
+    html = html.replace('</body>', font_ready_script + '</body>', 1)
+    with open(write_path, 'w') as f:
+        f.write(html)
+
+
 def commercial_capacity_per_year(df_total,
                                  date_type='App Received Date',
                                  y_range=None,
-                                 layout_size=None):
+                                 layout_size=None,
+                                 logo_path=None):
     """
     Bar graph showing added capacity each year.
 
@@ -64,6 +91,7 @@ def commercial_capacity_per_year(df_total,
     :param str date_type: One of 'App Received Date', 'App Approved Date'
     :param int/None y_range: Set graph Y range
     :param list/None layout_size: Size of graph (width, height). None sets autosize to True.
+    :param str logo_path: Optional path or URL to logo image
     :return go.Figure fig: Plotly bar graph
     """
 
@@ -100,7 +128,7 @@ def commercial_capacity_per_year(df_total,
     df['NEM Tariff'] = 'NBT'
 
     df['Quarter'] = df.index
-    hover_text = ("System Size: " + df['System Size DC'].astype(str) + " kW" +
+    hover_text = ("System Size: " + df['System Size DC'].astype(str) + " MW" +
                   "<br> Nbr Applications: " + df['Nbr Applications'].astype(str))
     fig.add_trace(go.Bar(
         x=df['Quarter'],
@@ -131,25 +159,6 @@ def commercial_capacity_per_year(df_total,
     if date_type == 'App Approved Date':
         xtitle = 'Application Approved Quarter'
 
-    fig.update_layout(
-        barmode='stack',
-        margin=dict(l=40, r=20, t=20, b=20),
-        font=dict(size=12),
-        legend={'title': 'Tariff'},
-        yaxis_title='System Size DC (kW)',
-        xaxis_title=xtitle,
-    )
-
-    if layout_size is None:
-        fig.update_layout(
-            autosize=True,
-        )
-    else:
-        fig.update_layout(
-            autosize=False,
-            width=layout_size[0],
-            height=layout_size[1],
-        )
     fig.update_xaxes(
         dtick="M3",
         tickformat="Q%q<br>'%y",
@@ -160,6 +169,45 @@ def commercial_capacity_per_year(df_total,
         fig.update_yaxes(
             range=[0, y_range],
         )
+    fig.add_annotation(
+        text='How AB 2143 Derailed Commercial Solar Adoption in Santa Cruz County',
+        xref='paper',
+        yref='paper',
+        x=0.05,
+        y=1.07,
+        showarrow=False,
+        font=dict(size=16),
+        xanchor='left',
+        yanchor='top',
+    )
+    fig.add_annotation(
+        text="Commercial and industrial system capacity (MW) added quarterly in Santa Cruz County in the years 2021-25.<br>Data Source: California DG Statistics",
+        xref="paper",
+        yref="paper",
+        x=0,
+        y=-0.4,
+        showarrow=False,
+        font=dict(size=11),
+        xanchor="left",
+        yanchor="bottom",
+        align="left",
+    )
+    fig.update_layout(
+        barmode='stack',
+        legend={'title': 'Tariff'},
+        yaxis_title='System Size DC (MW)',
+        xaxis_title=xtitle,
+        margin=dict(l=40, r=40, t=100, b=180),
+        autosize=True,
+        height=600,
+        font=dict(size=10),
+        showlegend=False,
+        font_family="Montserrat, sans-serif",
+        title_font_family="Montserrat, sans-serif",
+    )
+
+    if logo_path is not None:
+        fig = add_logo(logo_path, fig, y=1.25)
     return fig
 
 
@@ -382,7 +430,7 @@ def electricity_rates_scatter(df, max_year=None):
     return fig
 
 
-def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, date_type='App Received Date'):
+def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, logo_path=None, caption_text=None):
     """
     Visualization of the underlying rooftop solar applications with one of Borenstein's
     Before/After bar sets superimposed, along with NBT decision and application dates.
@@ -390,10 +438,10 @@ def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, date_type='App
     :param pd.DataFrame df: Dataframe containing solar applications from DGStats
     :param list[dict] dates: Before/After time intervals [{x0, x1}, {x0, x1}]
     :param str max_date: The most recent date to be used from df
-    :param str date_type: For applications, it's 'App Recieved Date'
+    :param str logo_path: Optional path or URL to logo image
+    :param str caption_text: Optional caption text
     :return go.Figure fig: Resulting figure
     """
-
     df_system = df.copy()
     df_system['App Days'] = (df_system['App Approved Date'] -
                              df_system['App Received Date']).dt.days
@@ -402,8 +450,8 @@ def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, date_type='App
         df_system = df_system[(df_system['App Received Date'] <= max_date)]
 
     df = df_system[(df_system['NEM Tariff'] == '1.0') | (df_system['NEM Tariff'] == '2.0')]
-    df = df[[date_type, 'System Size DC', 'App Days']]
-    df = df.set_index(date_type).rename_axis(None)
+    df = df[['App Received Date', 'System Size DC', 'App Days']]
+    df = df.set_index('App Received Date').rename_axis(None)
     df['Nbr Installations'] = 1
     df = df.resample("ME").agg({'System Size DC': 'sum', 'Nbr Installations': 'count'})
     df['Month'] = df.index
@@ -421,8 +469,8 @@ def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, date_type='App
     ))
 
     df = df_system[df_system['NEM Tariff'] == 'NBT']
-    df = df[[date_type, 'System Size DC', 'App Days']]
-    df = df.set_index(date_type).rename_axis(None)
+    df = df[['App Received Date', 'System Size DC', 'App Days']]
+    df = df.set_index('App Received Date').rename_axis(None)
     df['Nbr Installations'] = 1
     df = df.resample("ME").agg({'System Size DC': 'sum', 'Nbr Installations': 'count'})
     df['Month'] = df.index
@@ -437,15 +485,6 @@ def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, date_type='App
         xperiod="M1",
         name='NBT Applications',
     ))
-    xtitle = 'Application Received Date'
-    fig.update_layout(
-        barmode='stack',
-        margin=dict(l=40, r=20, t=20, b=20),
-        autosize=True,
-        yaxis_title='System Size DC (MW)',  #'Number of Applications',
-        xaxis_title=xtitle,
-        legend={'title': 'Dates & Applications'},
-    )
     # Draw dashed lines for dates: NBT decision and NEM cutoff
     fig.add_vline(x=datetime.datetime(2022, 12, 1).timestamp() * 1000,
                   line_width=2, line_dash="dash", line_color="red",
@@ -488,16 +527,58 @@ def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, date_type='App
         range=["2019-01-01", max_date],
         tickangle=0,
     )
+    # Title
+    fig.add_annotation(
+        text='How Date Selection Distorts Rooftop Solar Market Signals',
+        xref='paper',
+        yref='paper',
+        x=0.05,
+        y=1.07,
+        showarrow=False,
+        font=dict(size=16),
+        xanchor='left',
+        yanchor='top',
+    )
+    # Caption
+    if caption_text is not None:
+        fig.add_annotation(
+            text=caption_text,
+            xref="paper",
+            yref="paper",
+            x=0,
+            y=-0.4,
+            showarrow=False,
+            font=dict(size=11),
+            xanchor="left",
+            yanchor="bottom",
+            align="left",
+        )
+    fig.update_layout(
+        barmode='stack',
+        margin=dict(l=40, r=40, t=100, b=180),
+        autosize=True,
+        height=600,
+        font=dict(size=10),
+        font_family="Montserrat, sans-serif",
+        title_font_family="Montserrat, sans-serif",
+        yaxis_title='System Size DC (MW)',
+        xaxis_title='Application Received Date',
+        legend={'title': 'Dates & Applications'},
+    )
+
+    if logo_path is not None:
+        fig = add_logo(logo_path, fig, x=1.15, y=1.25)
 
     return fig
 
 
-def cost_shift_bargraph():
+def cost_shift_bargraph(logo_path=None):
     """
     Visually compare different cost shift measures and reference them to wildfire spending
     and earnings.
     Sources: PAO, CPUC, Borenstein (2024), M.Cubed (2024), FERC Form 1 filings
     Form 1 filings from PUDL https://data.catalyst.coop/preview/pudl/out_ferc1__yearly_income_statements_sched114?return_q=name%3Aferc1&filters=%255B%257B%2522fieldName%2522%253A%2522report_year%2522%252C%2522fieldType%2522%253A%2522number%2522%252C%2522operation%2522%253A%2522equals%2522%252C%2522value%2522%253A2024%257D%252C%257B%2522fieldName%2522%253A%2522income_type%2522%252C%2522fieldType%2522%253A%2522text%2522%252C%2522operation%2522%253A%2522contains%2522%252C%2522value%2522%253A%2522net_income_loss%2522%257D%255D
+    :param str logo_path: Optional path or URL to logo image
     :return go.Figure fig: Resulting bar graph
     """
     MUTED = 'rgb(190, 185, 205)'  # other estimate bars, stepped back
@@ -564,33 +645,41 @@ def cost_shift_bargraph():
         xref='x',
         yref='y',
     )
-
     fig.add_annotation(
-        text="Figure. Left: Comparison of different 2024 cost shift estimates from PAO, CPUC, Borenstein, SolarWAVE Action and M.Cubed.<br>Right: 2024 wildfire spending and 2024-25 net profits in total for the three IOUs PG&E, SCE and SDG&E for comparison.<br>Sources: PAO, CPUC, Borenstein (2024), M.Cubed (2024), FERC Form 1 filings via PUDL.",
+        text="Left: Comparison of different 2024 cost shift estimates from PAO, CPUC, Borenstein, SolarWAVE Action (blue) and M.Cubed.<br>Right: 2024 wildfire spending and 2024-25 net profits in total for the three IOUs PG&E, SCE and SDG&E for comparison.<br>Data Source: PAO, CPUC, Borenstein (2024), M.Cubed (2024), FERC Form 1 filings via PUDL.",
         xref="paper",
         yref="paper",
-        x=0,  # 0 = left, 0.5 = center, 1 = right
-        y=-0.4,  # Position below the x-axis
+        x=0,
+        y=-0.6,
         showarrow=False,
-        font=dict(size=12),
+        font=dict(size=11),
         xanchor="left",
         yanchor="bottom",
         align="left",
     )
-
+    fig.add_annotation(
+        text='Corrected Solar Cost Shift Dwarfed by Utility Wildfire Spending and Profits',
+        xref='paper',
+        yref='paper',
+        x=0.05,
+        y=1.07,
+        showarrow=False,
+        font=dict(size=16),
+        xanchor='left',
+        yanchor='top',
+    )
     fig.update_layout(
-        margin=dict(l=40, r=20, t=75, b=180),
+        margin=dict(l=40, r=40, t=100, b=200),
         autosize=True,
         height=600,
-        font=dict(size=12),
+        font=dict(size=10),
         yaxis_title='$ Billion US Dollars',
         showlegend=False,
-        title=dict(
-            text='Even the corrected $2.5B cost shift<br>is a fraction of what utilities already spend and earn',
-            x=0.05,
-            xanchor='left',
-            font=dict(size=15),
-        ),
+        font_family="Montserrat, sans-serif",
+        title_font_family="Montserrat, sans-serif",
     )
+
+    if logo_path is not None:
+        fig = add_logo(logo_path, fig, y=1.25)
 
     return fig
