@@ -11,6 +11,7 @@ from data_visualization import (
     dgstats_vs_pge_bargraph,
     electricity_rates_scatter,
     what_didnt_kill_rooftop_solar_graph,
+    write_fig,
 )
 
 
@@ -231,3 +232,60 @@ def test_add_copyright_returns_figure():
     fig = go.Figure()
     result = add_copyright("logo.png", fig)
     assert result is fig
+
+
+def _simple_fig():
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=[1, 2], y=[3, 4]))
+    return fig
+
+
+def test_write_fig_creates_png(tmp_path):
+    fig = _simple_fig()
+    write_fig(fig, str(tmp_path / "chart"), title="My Title")
+    assert (tmp_path / "chart.png").exists()
+
+
+def test_write_fig_creates_html(tmp_path):
+    fig = _simple_fig()
+    write_fig(fig, str(tmp_path / "chart"), title="My Title")
+    assert (tmp_path / "chart.html").exists()
+
+
+def test_write_fig_does_not_mutate_original(tmp_path):
+    fig = _simple_fig()
+    original_annotation_count = len(fig.layout.annotations)
+    write_fig(fig, str(tmp_path / "chart"), title="My Title", caption="A caption")
+    assert len(fig.layout.annotations) == original_annotation_count
+
+
+def test_write_fig_html_contains_title_meta(tmp_path):
+    write_fig(_simple_fig(), str(tmp_path / "chart"), title="Solar Cost Shift")
+    html = (tmp_path / "chart.html").read_text()
+    assert 'name="title"' in html
+    assert 'content="Solar Cost Shift"' in html
+
+
+def test_write_fig_html_contains_description_meta_when_caption_given(tmp_path):
+    write_fig(_simple_fig(), str(tmp_path / "chart"), title="T", caption="Source: CPUC")
+    html = (tmp_path / "chart.html").read_text()
+    assert 'name="description"' in html
+    assert 'content="Source: CPUC"' in html
+
+
+def test_write_fig_html_strips_html_tags_from_caption_meta(tmp_path):
+    write_fig(_simple_fig(), str(tmp_path / "chart"), title="T", caption="Line 1<br>Line 2")
+    html = (tmp_path / "chart.html").read_text()
+    assert 'content="Line 1Line 2"' in html
+
+
+def test_write_fig_html_no_description_meta_without_caption(tmp_path):
+    write_fig(_simple_fig(), str(tmp_path / "chart"), title="T")
+    html = (tmp_path / "chart.html").read_text()
+    assert 'name="description"' not in html
+
+
+def test_write_fig_html_has_montserrat_font(tmp_path):
+    write_fig(_simple_fig(), str(tmp_path / "chart"), title="T")
+    html = (tmp_path / "chart.html").read_text()
+    assert "Montserrat" in html

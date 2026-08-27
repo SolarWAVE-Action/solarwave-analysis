@@ -1,4 +1,5 @@
 import base64
+import copy
 import datetime
 import plotly.express as px
 import plotly.graph_objects as go
@@ -20,19 +21,15 @@ Author: Jenny Folkesson: jenny@solarwaveaction.org
 SOLARWAVE_BLUE = '#1775c9'
 
 
-def add_logo(logo_path, fig, x=0.99, y=1.1):
+def add_logo(logo_path, fig, x=0.99, y=1.15):
     """
-    Add logo to the top-right corner of a figure.
-
-    x and y are paper coordinates: 0–1 spans the plot area, and y > 1
-    goes into the top margin. Increase the figure's top margin
-    (e.g. margin=dict(t=80)) if the logo or text is clipped.
+    Add logo to the top-right corner of a figure (base64-encodes local files).
 
     :param str logo_path: Path to logo image, or a public URL (preferred for blog export)
     :param go.Figure fig: Plotly figure
     :param float x: Right edge of the logo in paper coordinates (default 0.99)
     :param float y: Top edge of the logo in paper coordinates (default 1.10)
-    :return go.Figure fig: Figure with logo and copyright added
+    :return go.Figure fig: Figure with logo added
     """
     if logo_path.startswith("http"):
         source = logo_path
@@ -53,6 +50,49 @@ def add_logo(logo_path, fig, x=0.99, y=1.1):
         xanchor="right",
         yanchor="top",
     )]
+    return fig
+
+
+def add_copyright(logo_path, fig, x=0.99, y=1.01):
+    """
+    Add logo and copyright notice to the top-right corner of a figure.
+
+    x and y are paper coordinates: 0–1 spans the plot area, and y > 1
+    goes into the top margin. Increase the figure's top margin
+    (e.g. margin=dict(t=80)) if the logo or text is clipped.
+
+    :param str logo_path: Path or URL to logo image
+    :param go.Figure fig: Plotly figure
+    :param float x: Right edge of the logo in paper coordinates (default 0.99)
+    :param float y: Top edge of the logo in paper coordinates (default 1.10)
+    :return go.Figure fig: Figure with logo and copyright added
+    """
+    sizex, sizey = 0.12, 0.09
+    fig.layout.images = [dict(
+        source=logo_path,
+        xref="paper",
+        yref="paper",
+        x=x,
+        y=y,
+        sizex=sizex,
+        sizey=sizey,
+        xanchor="right",
+        yanchor="top",
+    )]
+    yr = datetime.date.today().year
+    fig.add_annotation(
+        text=f"© {yr} SolarWAVE Action. All Rights Reserved.",
+        align='right',
+        showarrow=False,
+        xref='paper',
+        yref='paper',
+        x=x - sizex - 0.01,
+        y=y - sizey / 2,
+        xanchor='right',
+        yanchor='middle',
+        font=dict(color="gray", size=8),
+        borderwidth=0,
+    )
     return fig
 
 
@@ -79,19 +119,85 @@ def write_html_with_fonts(fig, write_path):
         f.write(html)
 
 
+def write_fig(fig, path, title, caption=None, logo_path=None, logo_x=0.99):
+    """
+    Save a figure as both PNG (with visible title/caption) and HTML (title/caption in metadata only).
+
+    :param go.Figure fig: Plotly figure without title or caption annotations
+    :param str path: Output path without file extension
+    :param str title: Chart title
+    :param str caption: Optional caption text (HTML allowed for PNG; stripped for meta tag)
+    :param str logo_path: Optional path or URL to logo image
+    """
+    # PNG — add title and caption as visible annotations on a copy
+    fig_png = copy.deepcopy(fig)
+    if logo_path is not None:
+        fig_png = add_logo(logo_path, fig_png, x=logo_x)
+    fig_png.add_annotation(
+        text=title,
+        xref='paper', yref='paper',
+        x=0.01, y=1.1,
+        showarrow=False,
+        font=dict(size=14),
+        xanchor='left', yanchor='top',
+    )
+    if caption is not None:
+        fig_png.add_annotation(
+            text=caption,
+            xref='paper', yref='paper',
+            x=0, y=-0.3,
+            showarrow=False,
+            font=dict(size=9),
+            xanchor='left', yanchor='bottom',
+            align='left',
+        )
+    fig_png.update_layout(
+        margin=dict(l=40, r=40, t=60, b=140),
+        width=800,
+        font_family="Montserrat, sans-serif",
+        title_font_family="Montserrat, sans-serif",
+    )
+    fig_png.write_image(path + '.png', scale=3)
+
+    if logo_path is not None:
+        fig = add_logo(logo_path, fig)
+    # HTML — no visible title/caption; embed as <meta> tags instead
+    html = fig.to_html(full_html=True,
+                       include_plotlyjs='cdn',
+                       config={"responsive": True, "displaylogo": False})
+    plain_caption = re.sub(r'<[^>]+>', '', caption) if caption else ''
+    meta_tags = (
+        f'<meta name="title" content="{title}">\n'
+        + (f'<meta name="description" content="{plain_caption}">\n' if caption else '')
+    )
+    font_link = (
+        '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
+        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
+        '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">\n'
+    )
+    font_ready_script = (
+        '<script>\n'
+        'document.fonts.ready.then(function() {\n'
+        '  var gd = document.querySelector(".plotly-graph-div");\n'
+        '  if (gd) Plotly.relayout(gd, {"font.family": "Montserrat, sans-serif"});\n'
+        '});\n'
+        '</script>\n'
+    )
+    html = html.replace('</head>', meta_tags + font_link + '</head>', 1)
+    html = html.replace('</body>', font_ready_script + '</body>', 1)
+    with open(path + '.html', 'w') as f:
+        f.write(html)
+
+
 def commercial_capacity_per_year(df_total,
                                  date_type='App Received Date',
-                                 y_range=None,
-                                 layout_size=None,
-                                 logo_path=None):
+                                 y_range=None):
     """
     Bar graph showing added capacity each year.
 
     :param pd.DataFrame df_total: DGStats data for all sectors of interest
     :param str date_type: One of 'App Received Date', 'App Approved Date'
     :param int/None y_range: Set graph Y range
-    :param list/None layout_size: Size of graph (width, height). None sets autosize to True.
-    :param str logo_path: Optional path or URL to logo image
     :return go.Figure fig: Plotly bar graph
     """
 
@@ -169,29 +275,6 @@ def commercial_capacity_per_year(df_total,
         fig.update_yaxes(
             range=[0, y_range],
         )
-    fig.add_annotation(
-        text='How AB 2143 Derailed Commercial Solar Adoption in Santa Cruz County',
-        xref='paper',
-        yref='paper',
-        x=0.05,
-        y=1.07,
-        showarrow=False,
-        font=dict(size=16),
-        xanchor='left',
-        yanchor='top',
-    )
-    fig.add_annotation(
-        text="Commercial and industrial system capacity (MW) added quarterly in Santa Cruz County in the years 2021-25.<br>Data Source: California DG Statistics",
-        xref="paper",
-        yref="paper",
-        x=0,
-        y=-0.4,
-        showarrow=False,
-        font=dict(size=11),
-        xanchor="left",
-        yanchor="bottom",
-        align="left",
-    )
     fig.update_layout(
         barmode='stack',
         legend={'title': 'Tariff'},
@@ -206,8 +289,6 @@ def commercial_capacity_per_year(df_total,
         title_font_family="Montserrat, sans-serif",
     )
 
-    if logo_path is not None:
-        fig = add_logo(logo_path, fig, y=1.25)
     return fig
 
 
@@ -430,7 +511,7 @@ def electricity_rates_scatter(df, max_year=None):
     return fig
 
 
-def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, logo_path=None, caption_text=None):
+def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None):
     """
     Visualization of the underlying rooftop solar applications with one of Borenstein's
     Before/After bar sets superimposed, along with NBT decision and application dates.
@@ -438,8 +519,6 @@ def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, logo_path=None
     :param pd.DataFrame df: Dataframe containing solar applications from DGStats
     :param list[dict] dates: Before/After time intervals [{x0, x1}, {x0, x1}]
     :param str max_date: The most recent date to be used from df
-    :param str logo_path: Optional path or URL to logo image
-    :param str caption_text: Optional caption text
     :return go.Figure fig: Resulting figure
     """
     df_system = df.copy()
@@ -527,32 +606,6 @@ def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, logo_path=None
         range=["2019-01-01", max_date],
         tickangle=0,
     )
-    # Title
-    fig.add_annotation(
-        text='How Date Selection Distorts Rooftop Solar Market Signals',
-        xref='paper',
-        yref='paper',
-        x=0.05,
-        y=1.07,
-        showarrow=False,
-        font=dict(size=16),
-        xanchor='left',
-        yanchor='top',
-    )
-    # Caption
-    if caption_text is not None:
-        fig.add_annotation(
-            text=caption_text,
-            xref="paper",
-            yref="paper",
-            x=0,
-            y=-0.4,
-            showarrow=False,
-            font=dict(size=11),
-            xanchor="left",
-            yanchor="bottom",
-            align="left",
-        )
     fig.update_layout(
         barmode='stack',
         margin=dict(l=40, r=40, t=100, b=180),
@@ -566,19 +619,15 @@ def what_didnt_kill_rooftop_solar_graph(df, dates, max_date=None, logo_path=None
         legend={'title': 'Dates & Applications'},
     )
 
-    if logo_path is not None:
-        fig = add_logo(logo_path, fig, x=1.15, y=1.25)
-
     return fig
 
 
-def cost_shift_bargraph(logo_path=None):
+def cost_shift_bargraph():
     """
     Visually compare different cost shift measures and reference them to wildfire spending
     and earnings.
     Sources: PAO, CPUC, Borenstein (2024), M.Cubed (2024), FERC Form 1 filings
     Form 1 filings from PUDL https://data.catalyst.coop/preview/pudl/out_ferc1__yearly_income_statements_sched114?return_q=name%3Aferc1&filters=%255B%257B%2522fieldName%2522%253A%2522report_year%2522%252C%2522fieldType%2522%253A%2522number%2522%252C%2522operation%2522%253A%2522equals%2522%252C%2522value%2522%253A2024%257D%252C%257B%2522fieldName%2522%253A%2522income_type%2522%252C%2522fieldType%2522%253A%2522text%2522%252C%2522operation%2522%253A%2522contains%2522%252C%2522value%2522%253A%2522net_income_loss%2522%257D%255D
-    :param str logo_path: Optional path or URL to logo image
     :return go.Figure fig: Resulting bar graph
     """
     MUTED = 'rgb(190, 185, 205)'  # other estimate bars, stepped back
@@ -645,31 +694,8 @@ def cost_shift_bargraph(logo_path=None):
         xref='x',
         yref='y',
     )
-    fig.add_annotation(
-        text="Left: Comparison of different 2024 cost shift estimates from PAO, CPUC, Borenstein, SolarWAVE Action (blue) and M.Cubed.<br>Right: 2024 wildfire spending and 2024-25 net profits in total for the three IOUs PG&E, SCE and SDG&E for comparison.<br>Data Source: PAO, CPUC, Borenstein (2024), M.Cubed (2024), FERC Form 1 filings via PUDL.",
-        xref="paper",
-        yref="paper",
-        x=0,
-        y=-0.6,
-        showarrow=False,
-        font=dict(size=11),
-        xanchor="left",
-        yanchor="bottom",
-        align="left",
-    )
-    fig.add_annotation(
-        text='Corrected Solar Cost Shift Dwarfed by Utility Wildfire Spending and Profits',
-        xref='paper',
-        yref='paper',
-        x=0.05,
-        y=1.07,
-        showarrow=False,
-        font=dict(size=16),
-        xanchor='left',
-        yanchor='top',
-    )
     fig.update_layout(
-        margin=dict(l=40, r=40, t=100, b=200),
+        margin=dict(l=40, r=40, t=80, b=60),
         autosize=True,
         height=600,
         font=dict(size=10),
@@ -678,8 +704,5 @@ def cost_shift_bargraph(logo_path=None):
         font_family="Montserrat, sans-serif",
         title_font_family="Montserrat, sans-serif",
     )
-
-    if logo_path is not None:
-        fig = add_logo(logo_path, fig, y=1.25)
 
     return fig
