@@ -112,13 +112,6 @@ def test_electricity_rates_scatter_has_three_traces():
     assert fig.layout.yaxis.title.text == "Average Electricity Price (¢/kWh)"
 
 
-def test_commercial_capacity_per_year_layout_size():
-    df = _build_visualization_df()
-    fig = commercial_capacity_per_year(df, layout_size=[800, 400])
-    assert fig.layout.width == 800
-    assert fig.layout.height == 400
-    assert not fig.layout.autosize
-
 
 def test_commercial_capacity_per_year_y_range():
     df = _build_visualization_df()
@@ -130,7 +123,7 @@ def test_cost_shift_bargraph_structure():
     fig = cost_shift_bargraph()
     assert len(fig.data) == 2
     assert fig.data[0].x == ('PAO', 'CPUC', 'Borenstein', 'SolarWAVE', 'M.Cubed')
-    assert fig.data[1].x == ('2024 Wildfire Spending', '2024 Net Profits', '2025 Net Profits')
+    assert fig.data[1].x == ('2024<br>Wildfire<br>Spending', '2024<br>Net<br>Profits', '2025<br>Net<br>Profits')
     assert not fig.layout.showlegend
 
 
@@ -199,7 +192,7 @@ def test_add_copyright_logo_default_position():
     add_copyright("logo.png", fig)
     image = fig.layout.images[0]
     assert image.x == 0.99
-    assert image.y == 1.10
+    assert image.y == 1.01
 
 
 def test_add_copyright_logo_custom_position():

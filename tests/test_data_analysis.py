@@ -28,6 +28,7 @@ DROP_COLS = [
 REQUIRED_COLS = [
     "App Approved Date",
     "Technology Type",
+    "System Size DC",
     "System Size AC",
     "App Received Date",
     "App Complete Date",
@@ -67,7 +68,8 @@ def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
         {
             "App Approved Date": "2020-01-10",
             "Technology Type": "Photovoltaic",
-            "System Size AC": 5,
+            "System Size DC": 5,
+            "System Size AC": 4,
             "App Received Date": "2020-01-01",
             "App Complete Date": "2020-01-05",
             "Application Status": "Interconnected",
@@ -75,7 +77,8 @@ def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
         {
             "App Approved Date": "2020-02-01",
             "Technology Type": "Wind",
-            "System Size AC": 5,
+            "System Size DC": 5,
+            "System Size AC": 4,
             "App Received Date": "2020-01-15",
             "App Complete Date": "2020-01-20",
             "Application Status": "Interconnected",
@@ -83,6 +86,7 @@ def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
         {
             "App Approved Date": "2020-03-01",
             "Technology Type": "Photovoltaic",
+            "System Size DC": 0,
             "System Size AC": 0,
             "App Received Date": "2020-02-01",
             "App Complete Date": "2020-02-10",
@@ -94,7 +98,8 @@ def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
         {
             "App Approved Date": "2019-12-15",
             "Technology Type": "Photovoltaic",
-            "System Size AC": 3,
+            "System Size DC": 3,
+            "System Size AC": 2,
             "App Received Date": "2019-12-01",
             "App Complete Date": "2019-12-05",
             "Application Status": "Interconnected",
@@ -102,7 +107,8 @@ def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
         {
             "App Approved Date": "2020-01-10",
             "Technology Type": "Photovoltaic",
-            "System Size AC": 4,
+            "System Size DC": 4,
+            "System Size AC": 3,
             "App Received Date": "2020-01-01",
             "App Complete Date": "2020-01-02",
             "Application Status": "Interconnected",
@@ -126,7 +132,7 @@ def test_read_dgstats_data_filters_and_merges_archives(tmp_path):
 
     # Filtered to solar + positive size
     assert all(result["Technology Type"].str.contains("Photovoltaic"))
-    assert (result["System Size AC"] > 0).all()
+    assert (result["System Size DC"] > 0).all()
 
     # Dates parsed
     assert pd.api.types.is_datetime64_any_dtype(result["App Approved Date"])
@@ -146,7 +152,8 @@ def test_read_dgstats_data_without_archive_dir(tmp_path):
         {
             "App Approved Date": "2021-05-10",
             "Technology Type": "Photovoltaic",
-            "System Size AC": 2,
+            "System Size DC": 2,
+            "System Size AC": 1,
             "App Received Date": "2021-05-01",
             "App Complete Date": "2021-05-05",
             "Application Status": "Interconnected",
