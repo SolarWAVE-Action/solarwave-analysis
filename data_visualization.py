@@ -704,5 +704,158 @@ def cost_shift_bargraph():
         font_family="Montserrat, sans-serif",
         title_font_family="Montserrat, sans-serif",
     )
+    return fig
 
+
+def application_time_linechart(df_total, date_type='App Approved Date', y_label='App Days',
+                               hidden_sectors=None):
+    """
+    Creates a line chart showing application time or number of applications processed per year
+    for all the customer sectors in the data set.
+    :param pd.DataFrame df_total: DGStats preprocessed data set
+    :param str date_type: Date type. App Approved Date is default since we're looking at how long
+        it took to process projects recently approved.
+    :param str y_label: Either App Days (application time in days) or Count (nbr of applications)
+    :param list hidden_sectors: Sectors to hide by default (visible in legend, clickable to show)
+    :return go.Figure Fig: Plotly figure
+    """
+    if hidden_sectors is None:
+        hidden_sectors = []
+
+    if 'App Days' not in list(df_total):
+        df_total['App Days'] = (df_total['App Approved Date'] - df_total['App Received Date']).dt.days
+
+    assert y_label in ['App Days', 'Count'], "y_label must be App Days or Count"
+
+    y_title = 'Median Application Time (days)'
+    if y_label == 'Count':
+        y_title = 'Number of Applications'
+
+    valid = df_total[df_total['Customer Sector'].isin(
+        [s for s in df_total['Customer Sector'].unique() if str(s).lower() != 'not available']
+    )]
+    year_min = valid[date_type].min().year
+    year_max = valid[date_type].max().year
+
+    fig = go.Figure()
+    sectors = sorted([s for s in df_total['Customer Sector'].unique()
+                      if str(s).lower() != 'not available'])
+    for sector in sectors:
+        df = df_total[df_total['Customer Sector'] == sector].copy()
+        df['Count'] = 1
+        df = df[[date_type, 'System Size DC', 'App Days', 'Count']]
+        df = df.set_index(date_type).rename_axis(None)
+        df = df.resample("YE").agg({'System Size DC': 'sum',
+                                    'App Days': 'median',
+                                    'Count': 'sum'})
+        df['Year'] = df.index.year
+
+        if y_label == 'Count':
+            hovertemplate = '%{fullData.name}: %{y:.0f} applications<extra></extra>'
+        else:
+            hovertemplate = '%{fullData.name}: %{y:.0f} days (n=%{customdata:.0f})<extra></extra>'
+
+        fig.add_trace(go.Scatter(
+            x=df['Year'],
+            y=df[y_label],
+            mode='lines+markers',
+            name=sector,
+            customdata=df['Count'],
+            hovertemplate=hovertemplate,
+            visible='legendonly' if sector in hidden_sectors else True,
+        ))
+
+    fig.update_layout(
+        margin=dict(l=40, r=40, t=80, b=60),
+        autosize=True,
+        height=600,
+        font=dict(size=10),
+        yaxis_title=y_title,
+        xaxis_title='Year',
+        showlegend=True,
+        hovermode='x unified',
+        font_family="Montserrat, sans-serif",
+        title_font_family="Montserrat, sans-serif",
+    )
+    fig.update_xaxes(
+        dtick=1,
+        tickformat='d',
+        range=[year_min, year_max],
+    )
+    return fig
+
+
+def application_time_bubble(df_total, date_type='App Approved Date', years=10,
+                             hidden_sectors=None):
+    """
+    Bubble chart combining median application time (y-axis) and application
+    volume (bubble area) per sector per year. Encodes three variables at once:
+    year, processing time, and volume. Bubble area is proportional to count.
+
+    :param pd.DataFrame df_total: DGStats preprocessed data set
+    :param str date_type: Date column to use for grouping
+    :param int years: Number of most recent years to display (default 10)
+    :param list/None hidden_sectors: Sectors hidden by default, clickable to show
+        (e.g. ['Residential'])
+    :return go.Figure fig: Plotly figure
+    """
+    if hidden_sectors is None:
+        hidden_sectors = []
+
+    if 'App Days' not in list(df_total):
+        df_total['App Days'] = (df_total['App Approved Date'] - df_total['App Received Date']).dt.days
+
+    year_max = df_total[date_type].max().year
+    df_total = df_total[df_total[date_type].dt.year >= year_max - years + 1]
+
+    sectors = sorted([s for s in df_total['Customer Sector'].unique()
+                      if str(s).lower() != 'not available'])
+
+    # Aggregate all sectors first so sizeref is shared across traces
+    traces = {}
+    for sector in sectors:
+        df = df_total[df_total['Customer Sector'] == sector].copy()
+        df['Count'] = 1
+        df = df[[date_type, 'App Days', 'Count']]
+        df = df.set_index(date_type).rename_axis(None)
+        df = df.resample("YE").agg({'App Days': 'median', 'Count': 'sum'})
+        df['Year'] = df.index.year
+        traces[sector] = df
+
+    max_count = max(df['Count'].max() for df in traces.values())
+    sizeref = 2 * max_count / (40 ** 2)  # caps max bubble diameter at ~40px
+
+    fig = go.Figure()
+    for sector in sectors:
+        df = traces[sector]
+        fig.add_trace(go.Scatter(
+            x=df['Year'],
+            y=df['App Days'],
+            mode='lines+markers',
+            name=sector,
+            marker=dict(size=df['Count'], sizemode='area', sizeref=sizeref, sizemin=4),
+            customdata=df['Count'],
+            hovertemplate='%{fullData.name}: %{y:.0f} days (%{customdata:.0f} applications)<extra></extra>',
+            visible='legendonly' if sector in hidden_sectors else True,
+        ))
+
+    year_min = df_total[date_type].min().year
+
+    fig.update_layout(
+        margin=dict(l=40, r=40, t=80, b=60),
+        autosize=True,
+        height=600,
+        font=dict(size=10),
+        yaxis_title='Median Application Time (days)',
+        xaxis_title='Year',
+        showlegend=True,
+        hovermode='x unified',
+        font_family="Montserrat, sans-serif",
+        title_font_family="Montserrat, sans-serif",
+    )
+    fig.update_xaxes(
+        dtick=1,
+        tickformat='d',
+        # range=[year_min, year_max],
+    )
     return fig
