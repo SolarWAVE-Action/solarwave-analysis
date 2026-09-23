@@ -1,11 +1,14 @@
 import datetime
 
 import pandas as pd
+import pytest
 import plotly.graph_objects as go
 
 from data_visualization import (
     add_copyright,
     application_time_bargraph,
+    application_time_bubble,
+    application_time_linechart,
     commercial_capacity_per_year,
     cost_shift_bargraph,
     dgstats_vs_pge_bargraph,
@@ -282,3 +285,144 @@ def test_write_fig_html_has_montserrat_font(tmp_path):
     write_fig(_simple_fig(), str(tmp_path / "chart"), title="T")
     html = (tmp_path / "chart.html").read_text()
     assert "Montserrat" in html
+
+
+def _build_linechart_df():
+    return pd.DataFrame({
+        "App Approved Date": pd.to_datetime([
+            "2022-03-01", "2022-06-01", "2022-09-01",
+            "2023-03-01", "2023-06-01", "2023-09-01",
+            "2022-04-01", "2023-04-01",
+            "2022-05-01", "2023-05-01",
+        ]),
+        "App Received Date": pd.to_datetime([
+            "2022-01-01", "2022-04-01", "2022-07-01",
+            "2023-01-01", "2023-04-01", "2023-07-01",
+            "2022-01-15", "2023-01-15",
+            "2022-02-01", "2023-02-01",
+        ]),
+        "Customer Sector": [
+            "Residential", "Residential", "Residential",
+            "Residential", "Residential", "Residential",
+            "Commercial", "Commercial",
+            "Not Available", "Not Available",
+        ],
+        "System Size DC": [5, 6, 7, 8, 9, 10, 20, 25, 1, 2],
+    })
+
+
+# --- application_time_linechart ---
+
+def test_linechart_has_one_trace_per_valid_sector():
+    df = _build_linechart_df()
+    fig = application_time_linechart(df)
+    trace_names = [t.name for t in fig.data]
+    assert "Residential" in trace_names
+    assert "Commercial" in trace_names
+    assert "Not Available" not in trace_names
+
+
+def test_linechart_excludes_not_available_case_insensitive():
+    df = _build_linechart_df()
+    df.loc[df["Customer Sector"] == "Not Available", "Customer Sector"] = "NOT AVAILABLE"
+    fig = application_time_linechart(df)
+    assert all(t.name.upper() != "NOT AVAILABLE" for t in fig.data)
+
+
+def test_linechart_sectors_sorted():
+    df = _build_linechart_df()
+    fig = application_time_linechart(df)
+    names = [t.name for t in fig.data]
+    assert names == sorted(names)
+
+
+def test_linechart_count_ylabel_updates_yaxis_title():
+    df = _build_linechart_df()
+    fig = application_time_linechart(df, y_label='Count')
+    assert fig.layout.yaxis.title.text == 'Number of Applications'
+
+
+def test_linechart_invalid_ylabel_raises():
+    df = _build_linechart_df()
+    with pytest.raises(AssertionError):
+        application_time_linechart(df, y_label='Invalid')
+
+
+def test_linechart_hidden_sectors_are_legendonly():
+    df = _build_linechart_df()
+    fig = application_time_linechart(df, hidden_sectors=['Residential'])
+    res = next(t for t in fig.data if t.name == 'Residential')
+    com = next(t for t in fig.data if t.name == 'Commercial')
+    assert res.visible == 'legendonly'
+    assert com.visible is True
+
+
+def test_linechart_xaxis_range_matches_data():
+    df = _build_linechart_df()
+    fig = application_time_linechart(df)
+    assert fig.layout.xaxis.range[0] == 2022
+    assert fig.layout.xaxis.range[1] == 2023
+
+
+def test_linechart_hovermode_is_unified():
+    df = _build_linechart_df()
+    fig = application_time_linechart(df)
+    assert fig.layout.hovermode == 'x unified'
+
+
+def test_linechart_computes_app_days_if_missing():
+    df = _build_linechart_df()
+    assert 'App Days' not in df.columns
+    application_time_linechart(df)
+    assert 'App Days' in df.columns
+
+
+# --- application_time_bubble ---
+
+def test_bubble_has_one_trace_per_valid_sector():
+    df = _build_linechart_df()
+    fig = application_time_bubble(df)
+    trace_names = [t.name for t in fig.data]
+    assert "Residential" in trace_names
+    assert "Commercial" in trace_names
+    assert "Not Available" not in trace_names
+
+
+def test_bubble_no_sectors_hidden_by_default():
+    df = _build_linechart_df()
+    fig = application_time_bubble(df)
+    assert all(t.visible is True for t in fig.data)
+
+
+def test_bubble_hidden_sectors_respected():
+    df = _build_linechart_df()
+    fig = application_time_bubble(df, hidden_sectors=['Commercial'])
+    com = next(t for t in fig.data if t.name == 'Commercial')
+    res = next(t for t in fig.data if t.name == 'Residential')
+    assert com.visible == 'legendonly'
+    assert res.visible is True
+
+
+def test_bubble_years_parameter_limits_data():
+    df = _build_linechart_df()
+    fig = application_time_bubble(df, years=1)
+    for trace in fig.data:
+        assert all(year == 2023 for year in trace.x)
+
+
+def test_bubble_mode_is_lines_and_markers():
+    df = _build_linechart_df()
+    fig = application_time_bubble(df)
+    assert all(t.mode == 'lines+markers' for t in fig.data)
+
+
+def test_bubble_marker_sizemode_is_area():
+    df = _build_linechart_df()
+    fig = application_time_bubble(df)
+    assert all(t.marker.sizemode == 'area' for t in fig.data)
+
+
+def test_bubble_hovermode_is_unified():
+    df = _build_linechart_df()
+    fig = application_time_bubble(df)
+    assert fig.layout.hovermode == 'x unified'
