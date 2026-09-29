@@ -1,12 +1,6 @@
-import base64
-import copy
 import datetime
-import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import re
-import textwrap
-
 import plotly.io as pio
 pio.templates.default = 'plotly_white'
 pio.templates['plotly_white'].layout.font.family = 'Montserrat, sans-serif'
@@ -19,174 +13,18 @@ Author: Jenny Folkesson: jenny@solarwaveaction.org
 
 
 SOLARWAVE_BLUE = '#1775c9'
-
-
-def add_logo(logo_path, fig, x=0.99, y=1.15):
-    """
-    Add logo to the top-right corner of a figure (base64-encodes local files).
-
-    :param str logo_path: Path to logo image, or a public URL (preferred for blog export)
-    :param go.Figure fig: Plotly figure
-    :param float x: Right edge of the logo in paper coordinates (default 0.99)
-    :param float y: Top edge of the logo in paper coordinates (default 1.10)
-    :return go.Figure fig: Figure with logo added
-    """
-    if logo_path.startswith("http"):
-        source = logo_path
-    else:
-        with open(logo_path, "rb") as image_file:
-            encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
-        source = f"data:image/png;base64,{encoded_string}"
-
-    sizex, sizey = 0.144, 0.108
-    fig.layout.images = [dict(
-        source=source,
-        xref="paper",
-        yref="paper",
-        x=x,
-        y=y,
-        sizex=sizex,
-        sizey=sizey,
-        xanchor="right",
-        yanchor="top",
-    )]
-    return fig
-
-
-def add_copyright(logo_path, fig, x=0.99, y=1.01):
-    """
-    Add logo and copyright notice to the top-right corner of a figure.
-
-    x and y are paper coordinates: 0–1 spans the plot area, and y > 1
-    goes into the top margin. Increase the figure's top margin
-    (e.g. margin=dict(t=80)) if the logo or text is clipped.
-
-    :param str logo_path: Path or URL to logo image
-    :param go.Figure fig: Plotly figure
-    :param float x: Right edge of the logo in paper coordinates (default 0.99)
-    :param float y: Top edge of the logo in paper coordinates (default 1.10)
-    :return go.Figure fig: Figure with logo and copyright added
-    """
-    sizex, sizey = 0.12, 0.09
-    fig.layout.images = [dict(
-        source=logo_path,
-        xref="paper",
-        yref="paper",
-        x=x,
-        y=y,
-        sizex=sizex,
-        sizey=sizey,
-        xanchor="right",
-        yanchor="top",
-    )]
-    yr = datetime.date.today().year
-    fig.add_annotation(
-        text=f"© {yr} SolarWAVE Action. All Rights Reserved.",
-        align='right',
-        showarrow=False,
-        xref='paper',
-        yref='paper',
-        x=x - sizex - 0.01,
-        y=y - sizey / 2,
-        xanchor='right',
-        yanchor='middle',
-        font=dict(color="gray", size=8),
-        borderwidth=0,
-    )
-    return fig
-
-
-def write_html_with_fonts(fig, write_path):
-    html = fig.to_html(full_html=True,
-                       include_plotlyjs='cdn',
-                       config={"responsive": True, "displaylogo": False})
-    font_link = (
-              '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
-              '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
-              '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">\n')
-    # Re-layout after fonts load — Plotly renders before async Google Fonts arrive,
-    # so without this the fallback sans-serif is used permanently.
-    font_ready_script = (
-        '<script>\n'
-        'document.fonts.ready.then(function() {\n'
-        '  var gd = document.querySelector(".plotly-graph-div");\n'
-        '  if (gd) Plotly.relayout(gd, {"font.family": "Montserrat, sans-serif"});\n'
-        '});\n'
-        '</script>\n')
-    html = html.replace('</head>', font_link + '</head>', 1)
-    html = html.replace('</body>', font_ready_script + '</body>', 1)
-    with open(write_path, 'w') as f:
-        f.write(html)
-
-
-def write_fig(fig, path, title, caption=None, logo_path=None, logo_x=0.99):
-    """
-    Save a figure as both PNG (with visible title/caption) and HTML (title/caption in metadata only).
-
-    :param go.Figure fig: Plotly figure without title or caption annotations
-    :param str path: Output path without file extension
-    :param str title: Chart title
-    :param str caption: Optional caption text (HTML allowed for PNG; stripped for meta tag)
-    :param str logo_path: Optional path or URL to logo image
-    """
-    # PNG — add title and caption as visible annotations on a copy
-    fig_png = copy.deepcopy(fig)
-    if logo_path is not None:
-        fig_png = add_logo(logo_path, fig_png, x=logo_x)
-    fig_png.add_annotation(
-        text=title,
-        xref='paper', yref='paper',
-        x=0.01, y=1.1,
-        showarrow=False,
-        font=dict(size=14),
-        xanchor='left', yanchor='top',
-    )
-    if caption is not None:
-        fig_png.add_annotation(
-            text=caption,
-            xref='paper', yref='paper',
-            x=0, y=-0.3,
-            showarrow=False,
-            font=dict(size=9),
-            xanchor='left', yanchor='bottom',
-            align='left',
-        )
-    fig_png.update_layout(
-        margin=dict(l=40, r=40, t=60, b=140),
-        width=800,
-        font_family="Montserrat, sans-serif",
-        title_font_family="Montserrat, sans-serif",
-    )
-    fig_png.write_image(path + '.png', scale=3)
-
-    if logo_path is not None:
-        fig = add_logo(logo_path, fig)
-    # HTML — no visible title/caption; embed as <meta> tags instead
-    html = fig.to_html(full_html=True,
-                       include_plotlyjs='cdn',
-                       config={"responsive": True, "displaylogo": False})
-    plain_caption = re.sub(r'<[^>]+>', '', caption) if caption else ''
-    meta_tags = (
-        f'<meta name="title" content="{title}">\n'
-        + (f'<meta name="description" content="{plain_caption}">\n' if caption else '')
-    )
-    font_link = (
-        '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
-        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
-        '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet">\n'
-    )
-    font_ready_script = (
-        '<script>\n'
-        'document.fonts.ready.then(function() {\n'
-        '  var gd = document.querySelector(".plotly-graph-div");\n'
-        '  if (gd) Plotly.relayout(gd, {"font.family": "Montserrat, sans-serif"});\n'
-        '});\n'
-        '</script>\n'
-    )
-    html = html.replace('</head>', meta_tags + font_link + '</head>', 1)
-    html = html.replace('</body>', font_ready_script + '</body>', 1)
-    with open(path + '.html', 'w') as f:
-        f.write(html)
+SOLARWAVE_GOLD = '#e39b00'
+SOLARWAVE_MUTED = '#c3c7d0'
+SOLARWAVE_MUTED_PALETTE = [
+    '#9b8ec4',  # muted purple
+    '#7ab5a0',  # muted teal
+    '#cc8866',  # muted orange
+    '#b87878',  # muted rose
+    '#a0a864',  # muted olive
+    '#6aacac',  # muted blue-green
+]
+SOLARWAVE_SUB = '#4f5a68'
+SOLARWAVE_GRID = '#e6e8ec'
 
 
 def commercial_capacity_per_year(df_total,
@@ -737,10 +575,20 @@ def application_time_linechart(df_total, date_type='App Approved Date', y_label=
     year_min = valid[date_type].min().year
     year_max = valid[date_type].max().year
 
+    sector_style = {
+        'Residential': dict(color=SOLARWAVE_GOLD, width=3),
+        'Commercial':  dict(color=SOLARWAVE_BLUE, width=3),
+    }
+    muted_iter = iter(SOLARWAVE_MUTED_PALETTE)
+
     fig = go.Figure()
     sectors = sorted([s for s in df_total['Customer Sector'].unique()
                       if str(s).lower() != 'not available'])
     for sector in sectors:
+        if sector not in sector_style:
+            sector_style[sector] = dict(color=next(muted_iter), width=1.5)
+        style = sector_style[sector]
+
         df = df_total[df_total['Customer Sector'] == sector].copy()
         df['Count'] = 1
         df = df[[date_type, 'System Size DC', 'App Days', 'Count']]
@@ -760,6 +608,8 @@ def application_time_linechart(df_total, date_type='App Approved Date', y_label=
             y=df[y_label],
             mode='lines+markers',
             name=sector,
+            line=dict(color=style['color'], width=style['width']),
+            marker=dict(color=style['color']),
             customdata=df['Count'],
             hovertemplate=hovertemplate,
             visible='legendonly' if sector in hidden_sectors else True,
@@ -825,15 +675,27 @@ def application_time_bubble(df_total, date_type='App Approved Date', years=10,
     max_count = max(df['Count'].max() for df in traces.values())
     sizeref = 2 * max_count / (40 ** 2)  # caps max bubble diameter at ~40px
 
+    # Blue/gold for the two key sectors; distinct muted colors for everything else
+    sector_style = {
+        'Residential': dict(color=SOLARWAVE_GOLD, width=3),
+        'Commercial':  dict(color=SOLARWAVE_BLUE, width=3),
+    }
+    muted_iter = iter(SOLARWAVE_MUTED_PALETTE)
+
     fig = go.Figure()
     for sector in sectors:
         df = traces[sector]
+        if sector not in sector_style:
+            sector_style[sector] = dict(color=next(muted_iter), width=1.5)
+        style = sector_style[sector]
         fig.add_trace(go.Scatter(
             x=df['Year'],
             y=df['App Days'],
             mode='lines+markers',
             name=sector,
-            marker=dict(size=df['Count'], sizemode='area', sizeref=sizeref, sizemin=4),
+            line=dict(color=style['color'], width=style['width']),
+            marker=dict(color=style['color'], size=df['Count'],
+                        sizemode='area', sizeref=sizeref, sizemin=4),
             customdata=df['Count'],
             hovertemplate='%{fullData.name}: %{y:.0f} days (%{customdata:.0f} applications)<extra></extra>',
             visible='legendonly' if sector in hidden_sectors else True,
@@ -845,17 +707,30 @@ def application_time_bubble(df_total, date_type='App Approved Date', years=10,
         margin=dict(l=40, r=40, t=80, b=60),
         autosize=True,
         height=600,
-        font=dict(size=10),
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        font=dict(family='Montserrat, sans-serif', size=10, color=SOLARWAVE_SUB),
         yaxis_title='Median Application Time (days)',
         xaxis_title='Year',
         showlegend=True,
         hovermode='x unified',
-        font_family="Montserrat, sans-serif",
-        title_font_family="Montserrat, sans-serif",
     )
     fig.update_xaxes(
         dtick=1,
         tickformat='d',
-        # range=[year_min, year_max],
+        showgrid=False,
+        showline=True,
+        linecolor='#9aa1ad',
+        ticks='',
+        tickfont=dict(color=SOLARWAVE_SUB),
+    )
+    fig.update_yaxes(
+        showgrid=True,
+        gridcolor=SOLARWAVE_GRID,
+        gridwidth=1.2,
+        zeroline=False,
+        showline=False,
+        ticks='',
+        tickfont=dict(color=SOLARWAVE_SUB),
     )
     return fig

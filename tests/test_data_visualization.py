@@ -5,7 +5,6 @@ import pytest
 import plotly.graph_objects as go
 
 from data_visualization import (
-    add_copyright,
     application_time_bargraph,
     application_time_bubble,
     application_time_linechart,
@@ -14,8 +13,8 @@ from data_visualization import (
     dgstats_vs_pge_bargraph,
     electricity_rates_scatter,
     what_didnt_kill_rooftop_solar_graph,
-    write_fig,
 )
+from write_graphs import add_copyright, write_fig
 
 
 def _build_visualization_df():
